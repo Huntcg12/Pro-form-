@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pro Form">
+<meta name="theme-color" content="#0F1513">
+<title>Pro Form</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#EDF0EE;--surface:#FFFFFF;--surface-2:#F4F7F5;--ink:#16201C;--muted:#5A6761;--line:#D3DBD6;
+  --accent:#1F4FB3;--accent-ink:#FFFFFF;--accent-soft:#E2E9F8;
+  --good:#1B7443;--good-soft:#DDF1E4;--warn:#9A5B00;--warn-soft:#F8EBD6;--bad:#AE2A21;--bad-soft:#F7E0DE;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#0F1513;--surface:#171F1C;--surface-2:#1D2723;--ink:#E4EBE7;--muted:#93A29B;--line:#2A3632;
+    --accent:#86A6F4;--accent-ink:#0F1513;--accent-soft:#1D2944;
+    --good:#56C58A;--good-soft:#173324;--warn:#E3A745;--warn-soft:#342812;--bad:#F07B72;--bad-soft:#3A1C1A;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-inline:max(16px,env(safe-area-inset-left,0px));padding-block:env(safe-area-inset-top,0px) calc(48px + env(safe-area-inset-bottom,0px))}
+.wrap{max-width:1000px;margin:0 auto}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;padding-block:18px 12px;border-bottom:2px solid var(--ink)}
+.brand h1{font-family:var(--display);font-weight:700;font-size:32px;line-height:1;margin:0;text-transform:uppercase;letter-spacing:.01em}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);white-space:nowrap}
+.chip b{color:var(--ink);font-weight:500}
+nav.tabs{display:flex;gap:2px;margin-block:12px 16px;overflow-x:auto;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;padding-block:4px}
+nav.tabs button{font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:.04em;text-transform:uppercase;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:6px 12px 5px;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:.02em;text-transform:uppercase;margin:0;text-wrap:balance}
+h3{font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.05em;text-transform:uppercase;margin:0;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+input,select{font:inherit;font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:7px 9px;min-width:0}
+input[type=number],input.mono{font-family:var(--mono);font-size:15px}
+button{font:inherit;cursor:pointer}
+.btn{font-weight:500;background:var(--accent);color:var(--accent-ink);border:0;border-radius:4px;padding:8px 14px}
+.btn:disabled{opacity:.5;cursor:default}
+.ghost{background:none;color:var(--accent);border:1px solid var(--line);border-radius:4px;padding:7px 12px}
+.danger{background:none;color:var(--bad);border:1px solid var(--line);border-radius:4px;padding:7px 12px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.note{font-size:13px;color:var(--muted);max-width:68ch;margin:0}
+.msg{font-size:13px;padding:8px 10px;border-radius:4px;background:var(--surface-2);border:1px solid var(--line)}
+.msg.err{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.msg.ok{background:var(--good-soft);color:var(--good);border-color:transparent}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td.n,th.n{text-align:right}
+.mono{font-family:var(--mono)}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pickb{background:var(--surface);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:14px}
+.pickb[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.pickb.done{color:var(--muted)}
+.pill{display:inline-block;font-family:var(--mono);font-size:12px;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.bet{background:var(--good-soft);color:var(--good);font-weight:500}
+.pill.pos{color:var(--good)}.pill.neg{color:var(--muted)}
+.pill.flag{background:var(--warn-soft);color:var(--warn)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{border-left:3px solid var(--line);padding:2px 0 2px 10px;min-width:0}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-family:var(--display);font-weight:600;font-size:24px;line-height:1.15;overflow-wrap:anywhere}
+.stat .s{font-size:12px;color:var(--muted)}
+.stat.good{border-left-color:var(--good)}.stat.acc{border-left-color:var(--accent)}
+/* runner list */
+.runners{display:flex;flex-direction:column}
+.rn{display:grid;grid-template-columns:34px minmax(0,1fr) 64px 64px 84px 70px;gap:8px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line)}
+.rn.head{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-block:4px}
+.rn.top{background:var(--accent-soft);border-radius:4px}
+.rn.scr{opacity:.45}
+.rn .no{font-family:var(--display);font-weight:700;font-size:20px;text-align:center}
+.rn .nm{min-width:0}
+.rn .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rn .meta{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rn .r{text-align:right;font-family:var(--mono);font-size:14px}
+.rn input{width:100%;padding:6px;text-align:right}
+.rn .bar{height:4px;background:var(--surface-2);border-radius:2px;margin-top:4px;overflow:hidden}
+.rn .bar i{display:block;height:100%;background:var(--accent)}
+.rn .scrk{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.fin{font-family:var(--display);font-weight:700}
+.fin.w{color:var(--good)}
+@media (max-width:620px){
+  .rn{grid-template-columns:28px minmax(0,1fr) 56px 76px;grid-template-areas:"no nm pr mk" "no nm fr ed"}
+  .rn .no{grid-area:no}.rn .nm{grid-area:nm}.rn .c-pr{grid-area:pr}.rn .c-fr{grid-area:fr}.rn .c-mk{grid-area:mk}.rn .c-ed{grid-area:ed}
+  .rn.head .c-fr,.rn.head .c-ed{display:none}
+  .rn.head{grid-template-areas:"no nm pr mk"}
+}
+.progress{height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.setgrid .d{font-size:12px;color:var(--muted);line-height:1.4;margin-top:3px}
+.setgrid input{width:120px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+pre{font-family:var(--mono);font-size:11px;background:var(--surface-2);padding:10px;border-radius:4px;overflow:auto;max-height:260px;white-space:pre-wrap;word-break:break-all}
+svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
+.steps{margin:0;padding-left:20px}.steps li{margin-bottom:6px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Pro Form</h1>
+      <p>Margin ratings from FormFav results → win chances → fair prices</p>
+    </div>
+    <span id="status" class="chip"></span>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="card" aria-selected="true">Race card</button>
+    <button role="tab" data-tab="bt" aria-selected="false">Backtest</button>
+    <button role="tab" data-tab="hist" aria-selected="false">History</button>
+    <button role="tab" data-tab="set" aria-selected="false">Settings</button>
+  </nav>
+
+  <!-- RACE CARD -->
+  <section id="tab-card" class="stack">
+    <div id="onboard" class="panel stack" hidden>
+      <h2>Get started</h2>
+      <ol class="steps">
+        <li><b>Settings:</b> paste your FormFav API key. It is saved in this browser only.</li>
+        <li><b>History:</b> sync past results. Ratings are built from every run in that history, so start with 3–6 months.</li>
+        <li><b>Race card:</b> pick a meeting and race, enter the prices you can get, and look for flagged edges.</li>
+      </ol>
+    </div>
+    <div class="panel stack">
+      <div class="row">
+        <label class="f">Date<input id="cDate" type="date"></label>
+        <button class="btn" id="loadMeet">Load meetings</button>
+        <span id="cardMsg" class="small muted"></span>
+      </div>
+      <div id="meetPick" class="pills"></div>
+      <div id="racePick" class="pills"></div>
+    </div>
+    <div id="raceHead" class="panel stack" hidden></div>
+    <div id="cardSummary" class="summary"></div>
+    <div id="cardPanel" class="panel" hidden>
+      <div class="runners" id="runners"></div>
+      <p class="note small" style="margin-top:10px">Enter the price you can actually get in the Market column. Pro data has no live odds or scratchings, so tick <b>Scr</b> for late scratchings. Probabilities recalculate for the remaining field.</p>
+    </div>
+  </section>
+
+  <!-- BACKTEST -->
+  <section id="tab-bt" class="stack" hidden>
+    <div class="panel stack">
+      <h2>Backtest</h2>
+      <p class="note">Ratings are rebuilt race by race using only runs before each race. Factor weights are fitted on the earliest 75% of races and tested on the latest 25%, which the fit never sees. Lower log-loss is better.</p>
+      <div id="btSummary" class="summary"></div>
+    </div>
+    <div class="two">
+      <div class="panel stack">
+        <h3>What the fit learned</h3>
+        <div class="scroll"><table><thead><tr><th>Factor</th><th class="n">Ratings model</th><th class="n">With market</th></tr></thead><tbody id="coefBody"></tbody></table></div>
+        <p class="note small">Weights on the log-odds scale per unit of each factor. A weight near zero means the factor adds nothing once the others are known.</p>
+      </div>
+      <div class="panel stack">
+        <h3>Calibration (test races)</h3>
+        <div id="calChart"></div>
+        <div class="scroll"><table><thead><tr><th>Model chance</th><th class="n">Runners</th><th class="n">Predicted</th><th class="n">Actual</th></tr></thead><tbody id="calBody"></tbody></table></div>
+      </div>
+    </div>
+    <div class="panel stack">
+      <h3>Level-stakes bets at SP (test races)</h3>
+      <div class="scroll"><table><thead><tr><th>Edge band</th><th class="n">Bets</th><th class="n">Wins</th><th class="n">ROI</th><th class="n">Blend bets</th><th class="n">Blend ROI</th></tr></thead><tbody id="betBody"></tbody></table></div>
+      <p class="note small">A bet is struck when model chance × SP − 1 reaches the band. SP is the final market, so beating it is a hard test. Treat small samples as noise.</p>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="tab-hist" class="stack" hidden>
+    <div class="panel stack">
+      <h2>Results history</h2>
+      <div id="histStats" class="summary"></div>
+      <div class="row">
+        <label class="f">From<input id="hFrom" type="date"></label>
+        <label class="f">To<input id="hTo" type="date"></label>
+        <button class="btn" id="syncBtn">Sync results</button>
+        <button class="ghost" id="topUp">Top up to yesterday</button>
+        <button class="ghost" id="stopBtn" hidden>Stop</button>
+      </div>
+      <div class="progress" id="prog" hidden><i></i></div>
+      <div id="syncMsg" class="small muted"></div>
+      <p class="note">Each day costs one request for the meeting list plus one per meeting (or one per race if FormFav needs that). Days already synced are skipped, so you can stop and resume. Keep the app open while it runs: iPhone pauses pages in the background.</p>
+    </div>
+    <div class="panel stack">
+      <h3>Troubleshooting</h3>
+      <details><summary>Last FormFav response</summary><pre id="rawOut">No requests yet.</pre></details>
+      <div class="row">
+        <button class="danger" id="wipeBtn">Delete all history</button>
+        <button class="danger" id="wipeYes" hidden>Yes, delete everything</button>
+        <button class="ghost" id="wipeNo" hidden>Cancel</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-set" class="stack" hidden>
+    <div class="panel stack">
+      <h2>FormFav connection</h2>
+      <div class="row">
+        <label class="f" style="flex:1 1 260px">API key<input id="keyIn" class="mono" type="password" autocomplete="off" spellcheck="false" placeholder="fk_…"></label>
+        <button class="btn" id="keySave">Save key</button>
+        <button class="ghost" id="keyTest">Test</button>
+        <button class="danger" id="keyForget">Forget key</button>
+      </div>
+      <div id="keyMsg" class="small muted"></div>
+      <p class="note">The key is stored in this browser on this device only. It is not in the app's code, so sharing the app's link doesn't share your key.</p>
+      <div class="row">
+        <label class="f">Country<select id="country"><option value="au">Australia</option><option value="nz">New Zealand</option><option value="hk">Hong Kong</option></select></label>
+        <label class="f">Daily request cap<input id="dailyCap" type="number" step="500"></label>
+      </div>
+    </div>
+    <div class="panel stack">
+      <div class="row" style="justify-content:space-between"><h3>Rating model</h3><button class="ghost" id="resetSet">Reset to defaults</button></div>
+      <div id="setGrid" class="setgrid"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const API='https://api.formfav.com/v1';
+
+/* ================= settings ================= */
+const DEF={country:'au',dailyCap:18000,resMode:'auto',
+  refWeight:57,kpl1200:1.5,wScale:1,marginCap:10,obsVar:9,newVar:36,newGap:4,priorVar:16,driftPerDay:0.02,minVar:1,heavyNoise:1.5,
+  spellDays:60,burnIn:45,edgeMin:0.10,kellyFrac:0.25,bank:1000};
+const SET=[
+ ['refWeight','Reference weight (kg)',0.5,'Ratings read as if every horse carried this weight.'],
+ ['kpl1200','Kg per length at 1200m',0.05,'Scaled by distance: a length is worth more kilos in sprints than in staying races.'],
+ ['wScale','Weight effect per kg',0.1,'1.0 means each extra kilo carried is worth one rating point.'],
+ ['marginCap','Margin cap (lengths)',1,'Beaten margins past this are capped. Tail-enders are often eased down.'],
+ ['obsVar','Run noise (kg²)',0.5,'How noisy one run is. Higher makes ratings move less after each run.'],
+ ['newVar','New horse uncertainty (kg²)',1,'Starting uncertainty for a horse with no runs in your history.'],
+ ['newGap','New horse gap to winner (kg)',0.5,'Debut horses start this far below the race-class level.'],
+ ['driftPerDay','Uncertainty added per day off (kg²)',0.005,'Horses change between runs, more so after a long break.'],
+ ['heavyNoise','Heavy track noise multiplier',0.1,'Runs on Heavy (8+) count for less.'],
+ ['spellDays','First-up threshold (days)',5,'Days since last run that count as resuming.'],
+ ['burnIn','Burn-in before fitting (days)',5,'Early races are skipped in the fit while ratings settle.'],
+ ['edgeMin','Bet threshold (edge)',0.01,'Minimum chance × price − 1 to flag a bet. 0.10 is 10%.'],
+ ['kellyFrac','Kelly fraction',0.05,'Share of full Kelly used for suggested stakes.'],
+ ['bank','Bank ($)',50,'Used to turn stake percentages into dollars.']];
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+let S={...DEF,...(JSON.parse(lsGet('pf.settings')||'{}'))};
+const saveS=()=>lsSet('pf.settings',JSON.stringify(S));
+const getKey=()=>lsGet('pf.key')||'';
+
+/* ================= dates ================= */
+const pad=n=>String(n).padStart(2,'0');
+const localISO=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const todayISO=()=>localISO(new Date());
+const addDays=(iso,n)=>{const [y,m,d]=iso.split('-').map(Number);const t=new Date(Date.UTC(y,m-1,d+n));return t.toISOString().slice(0,10)};
+const dayNum=iso=>{const [y,m,d]=iso.split('-').map(Number);return Math.round(Date.UTC(y,m-1,d)/864e5)};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtD=iso=>{if(!iso)return'–';const [y,m,d]=iso.split('-').map(Number);return d+' '+MON[m-1]+' '+String(y).slice(2)};
+
+/* ================= IndexedDB ================= */
+let dbp=null;
+function idb(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open('proform',1);
+  r.onupgradeneeded=()=>{const d=r.result;['races','days','cache'].forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s)})};
+  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
+async function idbPutMany(store,entries){const d=await idb();return new Promise((res,rej)=>{const tx=d.transaction(store,'readwrite');const os=tx.objectStore(store);entries.forEach(([k,v])=>os.put(v,k));tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+async function idbGet(store,key){const d=await idb();return new Promise((res,rej)=>{const r=d.transaction(store).objectStore(store).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function idbAll(store){const d=await idb();return new Promise((res,rej)=>{const tx=d.transaction(store);const os=tx.objectStore(store);const a=os.getAll(),b=os.getAllKeys();tx.oncomplete=()=>res(b.result.map((k,i)=>[k,a.result[i]]));tx.onerror=()=>rej(tx.error)})}
+async function idbClear(store){const d=await idb();return new Promise((res,rej)=>{const tx=d.transaction(store,'readwrite');tx.objectStore(store).clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+
+/* ================= API ================= */
+function usage(){const u=JSON.parse(lsGet('pf.usage')||'{}');return u.d===todayISO()?u.n:0}
+function bumpUsage(){lsSet('pf.usage',JSON.stringify({d:todayISO(),n:usage()+1}))}
+let RAW='No requests yet.';
+class ApiError extends Error{constructor(m,status){super(m);this.status=status}}
+async function api(path,params,{cacheFor}={}){
+  const key=getKey();if(!key)throw new ApiError('Add your FormFav API key in Settings first.',0);
+  const u=new URL(API+path);Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=='')u.searchParams.set(k,v)});
+  const ck=u.pathname+u.search;
+  if(cacheFor){try{const c=await idbGet('cache',ck);if(c&&Date.now()-c.at<cacheFor)return c.j}catch(e){}}
+  for(let attempt=0;;attempt++){
+    if(usage()>=S.dailyCap)throw new ApiError(`Stopped at your daily request cap (${S.dailyCap}). Raise it in Settings or continue tomorrow.`,0);
+    bumpUsage();renderStatus();
+    let r;
+    try{r=await fetch(u.toString(),{headers:{'X-API-Key':key,'accept':'application/json'}})}
+    catch(e){if(attempt<3){await sleep(1500*(attempt+1));continue}throw new ApiError('Could not reach FormFav. Check your connection.',0)}
+    const text=await r.text();
+    RAW=`GET ${ck}\nStatus ${r.status}\n\n`+text.slice(0,6000);const ro=$('#rawOut');if(ro)ro.textContent=RAW;
+    if((r.status===429||r.status>=500)&&attempt<4){await sleep(2500*2**attempt);continue}
+    if(r.status===404)return null;
+    if(r.status===401||r.status===403)throw new ApiError(`FormFav refused the key (status ${r.status}). Check it in Settings, and that your plan includes this data.`,r.status);
+    if(!r.ok)throw new ApiError(`FormFav returned status ${r.status}.`,r.status);
+    let j;try{j=JSON.parse(text)}catch(e){throw new ApiError('FormFav sent a reply that is not JSON.',r.status)}
+    if(cacheFor){try{await idbPutMany('cache',[[ck,{at:Date.now(),j}]])}catch(e){}}
+    return j;
+  }
+}
+
+/* ================= parsing ================= */
+const num=v=>{if(typeof v==='number')return v;const n=parseFloat(String(v??'').replace(/[^0-9.\-]/g,''));return isFinite(n)?n:NaN};
+function goingNum(s){s=String(s??'').toLowerCase();const m=s.match(/(\d+)/);if(m)return +m[1];if(s.includes('heavy'))return 9;if(s.includes('soft'))return 6;if(s.includes('firm'))return 2;if(s.includes('good'))return 4;return NaN}
+function findAll(o,pred,out=[]){if(Array.isArray(o))o.forEach(x=>findAll(x,pred,out));else if(o&&typeof o==='object'){if(pred(o))out.push(o);else Object.values(o).forEach(v=>findAll(v,pred,out))}return out}
+const range=n=>Array.from({length:Math.max(0,n|0)},(_,i)=>i+1);
+function parseMeetings(j){
+  const ms=findAll(j,o=>!Array.isArray(o.placings)&&!Array.isArray(o.runners)&&(o.slug||o.trackSlug)||(!o.placings&&!o.runners&&(o.track||o.venue||o.trackName)&&(Array.isArray(o.races)||o.raceCount||o.numberOfRaces)));
+  const seen=new Set();
+  return ms.map(m=>{
+    let races=[];
+    if(Array.isArray(m.races))races=m.races.map(r=>typeof r==='object'?+(r.raceNumber??r.number??r.race??r.raceNo):+r).filter(x=>x>0);
+    if(!races.length)races=range(+(m.raceCount??m.numberOfRaces??m.totalRaces??0));
+    const code=String(m.raceType??m.race_code??m.raceCode??m.type??'').toLowerCase();
+    return{track:m.track||m.venue||m.trackName||m.name||m.slug,slug:m.slug||m.trackSlug||m.track||m.venue,country:String(m.country??'').toLowerCase(),code,state:m.state||'',races:[...new Set(races)].sort((a,b)=>a-b),
+      startTime:(Array.isArray(m.races)&&m.races[0]&&m.races[0].startTime)||m.startTime||'',condition:m.condition||m.trackCondition||''};
+  }).filter(m=>{if(!m.slug)return false;if(m.code&&!/gallop|thorough|horse/.test(m.code))return false;if(m.country&&S.country&&m.country!==S.country)return false;
+    const k=m.slug.toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
+}
+function normRace(o,fb){
+  const run=o.placings.filter(p=>!p.scratched&&p.name).map(p=>[String(p.name).trim(),num(p.weight),num(p.barrier),num(p.position),num(p.margin),num(p.startingPrice)]);
+  return{d:String(o.date||fb.date).slice(0,10),t:o.track||fb.track,slug:fb.slug,r:+(o.raceNumber??o.race??fb.race),dist:num(o.distance),g:goingNum(o.condition),cond:o.condition||'',cls:o.raceClass||'',name:o.raceName||'',prize:num(o.prizeMoney),ab:!!o.abandoned,st:String(o.resultStatus||'').toLowerCase(),run};
+}
+const raceOK=R=>!R.ab&&R.r>0&&R.dist>0&&(!R.st||R.st==='final'||R.st==='official')&&R.run.filter(x=>x[3]>=1).length>=3;
+const raceKey=R=>R.d+'|'+String(R.t).toLowerCase()+'|'+R.r;
+
+/* ================= history sync ================= */
+let RACES=[],DAYS=new Map(),STOP=false,SYNCING=false;
+async function loadHistory(){try{const rs=await idbAll('races');RACES=rs.map(x=>x[1]);const ds=await idbAll('days');DAYS=new Map(ds)}catch(e){RACES=[];DAYS=new Map()}
+  RACES.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.r-b.r)}
+async function meetingResults(date,m){
+  const base={race_code:'gallops',country:S.country,date,track:m.slug};
+  const fb={date,track:m.track,slug:m.slug};
+  const collect=j=>j?findAll(j,o=>Array.isArray(o.placings)).map(o=>normRace(o,fb)):[];
+  if(S.resMode!=='race'){
+    let rs=[];let failed=false;
+    try{rs=collect(await api('/results',base))}catch(e){if(e.status===0||e.status===401||e.status===403)throw e;failed=true}
+    if(rs.length>=2||(rs.length===1&&m.races.length<=1)){if(S.resMode==='auto'){S.resMode='meeting';saveS()}return rs}
+    if(S.resMode==='auto'&&!failed&&m.races.length>1&&rs.length<=1){S.resMode='race';saveS()}
+    else if(S.resMode==='auto'&&failed&&m.races.length>1){S.resMode='race';saveS()}
+  }
+  const out=[];const list=m.races.length?m.races:range(12);let miss=0;
+  for(const r of list){if(STOP)break;
+    const j=await api('/results',{...base,race:r});
+    if(!j){if(!m.races.length&&++miss>=2)break;continue}miss=0;
+    collect(j).forEach(R=>{if(!R.r)R.r=r;out.push(R)});
+  }
+  return out;
+}
+async function pool(items,n,fn){let i=0;const workers=Array.from({length:Math.min(n,items.length)},async()=>{while(i<items.length&&!STOP){const k=i++;await fn(items[k],k)}});await Promise.all(workers)}
+async function syncRange(from,to){
+  if(SYNCING)return;if(!getKey()){setSyncMsg('Add your FormFav API key in Settings first.','err');return}
+  if(from>to)[from,to]=[to,from];
+  const today=todayISO();if(to>=today)to=addDays(today,-1);
+  const dates=[];for(let d=to;d>=from;d=addDays(d,-1))dates.push(d);
+  const todo=dates.filter(d=>{const x=DAYS.get(d);return !x||(!x.final&&dayNum(today)-dayNum(d)<=3)||(x.final===false)});
+  if(!todo.length){setSyncMsg('Every day in that range is already synced.','ok');return}
+  SYNCING=true;STOP=false;$('#stopBtn').hidden=false;$('#syncBtn').disabled=true;$('#topUp').disabled=true;$('#prog').hidden=false;
+  const u0=usage();let added=0,done=0,err=null;
+  try{
+    for(const date of todo){if(STOP)break;
+      setSyncMsg(`${fmtD(date)}: loading meetings… (${done}/${todo.length} days, ${added} races added, ${usage()-u0} requests)`);
+      const mj=await api('/form/meetings',{date,race_code:'gallops',country:S.country});
+      const meets=mj?parseMeetings(mj):[];
+      let dayRaces=[];let dayErr=false;
+      await pool(meets,3,async m=>{try{const rs=await meetingResults(date,m);dayRaces.push(...rs)}catch(e){if(e.status===0||e.status===401||e.status===403)throw e;dayErr=true}
+        setSyncMsg(`${fmtD(date)}: ${dayRaces.length} races from ${meets.length} meetings… (${done}/${todo.length} days, ${added} races added, ${usage()-u0} requests)`)});
+      const good=dayRaces.filter(raceOK);
+      if(good.length)await idbPutMany('races',good.map(R=>[raceKey(R),R]));
+      added+=good.length;
+      const final=!STOP&&!dayErr&&dayNum(today)-dayNum(date)>3;
+      const rec={n:good.length,meetings:meets.length,at:Date.now(),final:final||(!STOP&&!dayErr&&good.length>0&&dayNum(today)-dayNum(date)>1)};
+      if(!STOP){await idbPutMany('days',[[date,rec]]);DAYS.set(date,rec)}
+      done++;$('#prog i').style.width=(done/todo.length*100).toFixed(1)+'%';
+    }
+  }catch(e){err=e}
+  SYNCING=false;$('#stopBtn').hidden=true;$('#syncBtn').disabled=false;$('#topUp').disabled=false;
+  await loadHistory();rebuild();
+  const tail=`${added} races added from ${done} days using ${usage()-u0} requests.`;
+  if(err)setSyncMsg(err.message+' '+tail,'err');else if(STOP)setSyncMsg('Stopped. '+tail+' Sync again to resume.');else setSyncMsg('Done. '+tail,'ok');
+  renderHist();
+}
+function setSyncMsg(t,kind){const el=$('#syncMsg');el.textContent=t;el.className='small '+(kind==='err'?'msg err':kind==='ok'?'msg ok':'muted')}
+
+/* ================= rating engine ================= */
+const FEATS=['Rating (kg)','Rating uncertainty (kg)','First-up','Debut in history','Barrier (inside 0 → outside 1)','Last-start beaten (kg)','Runs in history (log)'];
+const DEFCOEF=[0.35,0,0,0,0,0,0];
+let M={ready:false,hist:new Map(),pp:null,cA:DEFCOEF.slice(),cB:null,test:null,nRecs:0};
+const kplFor=dist=>Math.max(0.6,Math.min(2.4,S.kpl1200*1200/(dist||1200)));
+function feats(f,N){
+  const w=isFinite(f.w)?f.w:S.refWeight;
+  return[f.m-(w-S.refWeight)*S.wScale,Math.sqrt(f.v),(f.n>0&&f.days>S.spellDays)?1:0,f.n===0?1:0,
+    isFinite(f.bar)&&N>1?Math.min(1,Math.max(0,(f.bar-1)/(N-1))):0.5,f.n>0&&isFinite(f.lb)?f.lb:0,Math.log(1+f.n)];
+}
+function runPass(pp){
+  const st=new Map(),hist=new Map(),recs=[],Ls=[];
+  const t0=RACES.length?dayNum(RACES[0].d):0;
+  for(const R of RACES){
+    const D=dayNum(R.d),kpl=kplFor(R.dist);
+    const prior=pp&&R.prize>0?pp.a+pp.b*Math.log(R.prize):null;
+    const field=R.run.map(x=>({name:x[0],k:x[0].toLowerCase(),w:x[1],bar:x[2],pos:x[3],mg:x[4],sp:x[5]}));
+    field.forEach(f=>{const s=st.get(f.k);
+      if(!s){f.m=(prior??0)-S.newGap;f.v=S.newVar;f.n=0;f.days=NaN;f.lb=NaN}
+      else{f.days=D-s.D;f.m=s.m;f.v=Math.min(S.newVar,s.v+S.driftPerDay*f.days);f.n=s.n;f.lb=s.lb}});
+    const N=field.length,wi=field.findIndex(f=>f.pos===1);
+    if(pp&&D-t0>=S.burnIn&&wi>=0&&N>=4&&field.filter(f=>f.n>0).length>=0.5*N){
+      const sp=field.map(f=>f.sp);let lm=null;
+      if(sp.every(x=>isFinite(x)&&x>1)){const im=sp.map(x=>1/x),z=im.reduce((a,c)=>a+c,0);lm=im.map(x=>Math.log(x/z))}
+      recs.push({d:R.d,X:field.map(f=>feats(f,N)),wi,sp,lm});
+    }
+    const ob=field.filter(f=>f.pos>=1&&isFinite(f.mg));
+    ob.forEach(f=>{f.bk=Math.min(Math.max(f.mg,0),S.marginCap)*kpl;f.perf=-f.bk+((isFinite(f.w)?f.w:S.refWeight)-S.refWeight)*S.wScale});
+    let sw=0,s=0;ob.forEach(f=>{const w=1/(f.v+S.obsVar);sw+=w;s+=w*(f.m-f.perf)});
+    if(prior!=null){const w=1/S.priorVar;sw+=w;s+=w*prior}
+    if(!sw)continue;
+    const L=s/sw;if(R.prize>0)Ls.push([Math.log(R.prize),L]);
+    const ov=S.obsVar*(R.g>=8?S.heavyNoise:1);
+    ob.forEach(f=>{const y=f.perf+L,K=f.v/(f.v+ov);const ns={m:f.m+K*(y-f.m),v:Math.max(S.minVar,f.v*(1-K)),D,n:f.n+1,lb:f.bk};st.set(f.k,ns);
+      if(!hist.has(f.k))hist.set(f.k,[]);hist.get(f.k).push({D,d:R.d,m:ns.m,v:ns.v,n:ns.n,lb:ns.lb,pos:f.pos,mg:f.mg,t:R.t,dist:R.dist,g:R.g,name:f.name})});
+    field.filter(f=>!(f.pos>=1)).forEach(f=>{const s=st.get(f.k);if(s)st.set(f.k,{...s,D})});
+  }
+  return{st,hist,recs,Ls};
+}
+function ols(pairs){const n=pairs.length;if(n<20)return null;let sx=0,sy=0,sxx=0,sxy=0;pairs.forEach(([x,y])=>{sx+=x;sy+=y;sxx+=x*x;sxy+=x*y});const b=(n*sxy-sx*sy)/(n*sxx-sx*sx||1);return{a:(sy-b*sx)/n,b}}
+function softmax(u){const m=Math.max(...u);const e=u.map(x=>Math.exp(x-m));const z=e.reduce((a,c)=>a+c,0);return e.map(x=>x/z)}
+function rowsOf(r,mkt){return mkt?r.X.map((x,i)=>[...x,r.lm[i]]):r.X}
+function fitCL(recs,mkt,iters=300){
+  if(recs.length<30)return null;
+  const K=FEATS.length+(mkt?1:0);const all=[];recs.forEach(r=>rowsOf(r,mkt).forEach(x=>all.push(x)));
+  const mu=new Array(K).fill(0),sd=new Array(K).fill(0);
+  all.forEach(x=>x.forEach((v,k)=>mu[k]+=v));mu.forEach((_,k)=>mu[k]/=all.length);
+  all.forEach(x=>x.forEach((v,k)=>sd[k]+=(v-mu[k])**2));sd.forEach((_,k)=>sd[k]=Math.sqrt(sd[k]/all.length)||1);
+  const Z=recs.map(r=>rowsOf(r,mkt).map(x=>x.map((v,k)=>(v-mu[k])/sd[k])));
+  const b=new Array(K).fill(0);b[mkt?K-1:0]=1;
+  const m1=new Array(K).fill(0),m2=new Array(K).fill(0),lr=0.05,lam=1e-3;
+  for(let it=1;it<=iters;it++){
+    const g=new Array(K).fill(0);
+    for(let j=0;j<Z.length;j++){const z=Z[j],wi=recs[j].wi;const u=z.map(x=>x.reduce((a,v,k)=>a+v*b[k],0));const p=softmax(u);
+      for(let k=0;k<K;k++){let e=0;for(let i=0;i<z.length;i++)e+=p[i]*z[i][k];g[k]+=z[wi][k]-e}}
+    for(let k=0;k<K;k++){const gk=g[k]/Z.length-lam*b[k];m1[k]=0.9*m1[k]+0.1*gk;m2[k]=0.999*m2[k]+0.001*gk*gk;
+      b[k]+=lr*(m1[k]/(1-0.9**it))/(Math.sqrt(m2[k]/(1-0.999**it))+1e-8)}
+  }
+  return b.map((v,k)=>v/sd[k]);
+}
+const utility=(x,c)=>x.reduce((a,v,k)=>a+v*(c[k]||0),0);
+function evalSet(recs,cA,cB){
+  const E={n:recs.length,llA:0,llU:0,llM:0,llB:0,nM:0,llAM:0,
+    cal:[[0,.05],[.05,.1],[.1,.2],[.2,.35],[.35,1.01]].map(([lo,hi])=>({lo,hi,n:0,sp:0,w:0})),
+    bets:[[0,.1,'0–10%'],[.1,.25,'10–25%'],[.25,.5,'25–50%'],[.5,1e9,'50%+']].map(([lo,hi,l])=>({lo,hi,l,nA:0,wA:0,plA:0,nB:0,plB:0}))};
+  for(const r of recs){
+    const pA=softmax(r.X.map(x=>utility(x,cA)));E.llA-=Math.log(pA[r.wi]);E.llU+=Math.log(r.X.length);
+    pA.forEach((p,i)=>{const b=E.cal.find(c=>p>=c.lo&&p<c.hi);b.n++;b.sp+=p;if(i===r.wi)b.w++;
+      const sp=r.sp[i];if(isFinite(sp)&&sp>1){const e=p*sp-1;const bb=E.bets.find(x=>e>=x.lo&&e<x.hi);if(bb){bb.nA++;if(i===r.wi){bb.wA++;bb.plA+=sp-1}else bb.plA-=1}}});
+    if(r.lm){E.nM++;E.llM-=r.lm[r.wi];E.llAM-=Math.log(pA[r.wi]);
+      if(cB){const pB=softmax(rowsOf(r,true).map(x=>utility(x,cB)));E.llB-=Math.log(pB[r.wi]);
+        pB.forEach((p,i)=>{const sp=r.sp[i];const e=p*sp-1;const bb=E.bets.find(x=>e>=x.lo&&e<x.hi);if(bb){bb.nB++;if(i===r.wi)bb.plB+=sp-1;else bb.plB-=1}})}}
+  }
+  const n=E.n||1;E.llA/=n;E.llU/=n;if(E.nM){E.llM/=E.nM;E.llAM/=E.nM;E.llB/=E.nM}
+  return E;
+}
+function rebuild(){
+  if(!RACES.length){M={ready:false,hist:new Map(),pp:null,cA:DEFCOEF.slice(),cB:null,test:null,nRecs:0};renderAll();return}
+  const p1=runPass(null);const pp=ols(p1.Ls);
+  const p2=runPass(pp||{a:0,b:0});
+  const recs=p2.recs;const cut=Math.floor(recs.length*0.75);const tr=recs.slice(0,cut),te=recs.slice(cut);
+  const trM=tr.filter(r=>r.lm),allM=recs.filter(r=>r.lm);
+  const cAtr=fitCL(tr,false),cBtr=fitCL(trM,true);
+  const test=te.length>=20&&cAtr?evalSet(te,cAtr,cBtr):null;
+  const cA=fitCL(recs,false)||DEFCOEF.slice(),cB=fitCL(allM,true);
+  M={ready:true,hist:p2.hist,pp,cA,cB,cAtr,cBtr,test,nRecs:recs.length,nTr:tr.length,nTe:te.length,teFrom:te[0]&&te[0].d,teTo:te.length&&te[te.length-1].d};
+  renderAll();
+}
+function stateAsOf(name,date){
+  const h=M.hist.get(String(name).trim().toLowerCase());if(!h)return null;const D=dayNum(date);
+  let lo=0,hi=h.length-1,k=-1;while(lo<=hi){const mid=(lo+hi)>>1;if(h[mid].D<D){k=mid;lo=mid+1}else hi=mid-1}
+  return k<0?null:{...h[k],runs:h.slice(Math.max(0,k-4),k+1).reverse()};
+}
+
+/* ================= race card ================= */
+let CARD={date:todayISO(),meets:[],meet:null,race:null,form:null,result:null,prices:{},scr:{}};
+async function loadMeetings(){
+  const date=$('#cDate').value||todayISO();CARD.date=date;CARD.meet=null;CARD.race=null;CARD.form=null;renderPickers();renderCard();
+  cardMsg('Loading meetings…');
+  try{const past=date<todayISO();const j=await api('/form/meetings',{date,race_code:'gallops',country:S.country},{cacheFor:past?864e6:30*6e4});
+    CARD.meets=j?parseMeetings(j):[];cardMsg(CARD.meets.length?'':'No meetings found for that date.')}
+  catch(e){CARD.meets=[];cardMsg(e.message,true)}
+  renderPickers();
+}
+async function loadRace(meet,race){
+  CARD.meet=meet;CARD.race=race;CARD.form=null;CARD.result=null;CARD.prices={};CARD.scr={};renderPickers();renderCard();
+  cardMsg('Loading form…');
+  try{const past=CARD.date<todayISO();
+    const j=await api('/form',{date:CARD.date,track:meet.slug,race,race_code:'gallops',country:S.country},{cacheFor:past?864e6:15*6e4});
+    if(!j){cardMsg('FormFav has no form for that race.',true);return}
+    const o=findAll(j,x=>Array.isArray(x.runners))[0]||j;CARD.form=o;
+    (o.runners||[]).forEach(r=>{if(r.scratched)CARD.scr[r.number]=true});
+    cardMsg('');
+  }catch(e){cardMsg(e.message,true)}
+  renderCard();
+}
+async function loadResult(){
+  if(!CARD.form)return;cardMsg('Loading result…');
+  try{const j=await api('/results',{date:CARD.date,track:CARD.meet.slug,race:CARD.race,race_code:'gallops',country:S.country},{cacheFor:864e6});
+    const o=j&&findAll(j,x=>Array.isArray(x.placings))[0];
+    if(!o){cardMsg('No result yet. Pro results arrive in batches every 2–3 hours.',true);return}
+    CARD.result={};o.placings.forEach(p=>{CARD.result[String(p.name).toLowerCase()]={pos:num(p.position),sp:num(p.startingPrice),mg:num(p.margin)}});cardMsg('');
+  }catch(e){cardMsg(e.message,true)}
+  renderCard();
+}
+function cardMsg(t,err){const el=$('#cardMsg');el.textContent=t;el.className='small '+(err?'msg err':'muted')}
+function scoreCard(){
+  const o=CARD.form;if(!o)return null;
+  const prize=num(o.prizeMoney);const prior=M.pp&&prize>0?M.pp.a+M.pp.b*Math.log(prize):0;
+  const all=(o.runners||[]).map(r=>{const s=M.ready?stateAsOf(r.name,CARD.date):null;const D=dayNum(CARD.date);
+    const f={r,num:r.number,name:r.name,w:num(r.weight),bar:num(r.barrier),scr:!!CARD.scr[r.number],price:num(CARD.prices[r.number]),s};
+    if(s){f.m=s.m;f.v=Math.min(S.newVar,s.v+S.driftPerDay*(D-s.D));f.n=s.n;f.days=D-s.D;f.lb=s.lb}else{f.m=prior-S.newGap;f.v=S.newVar;f.n=0;f.days=NaN;f.lb=NaN}
+    f.proj=f.m-((isFinite(f.w)?f.w:S.refWeight)-S.refWeight)*S.wScale;
+    return f});
+  const live=all.filter(f=>!f.scr);const N=live.length;if(!N)return{all,live,mode:'none'};
+  live.forEach(f=>{f.x=feats(f,N);f.proj=f.x[0]});
+  const mkt=live.every(f=>isFinite(f.price)&&f.price>1);let mode='ratings';
+  let u=live.map(f=>utility(f.x,M.cA));live.forEach((f,i)=>f.uA=u[i]);
+  if(mkt&&M.cB&&S.blend!==false){const im=live.map(f=>1/f.price),z=im.reduce((a,c)=>a+c,0);u=live.map((f,i)=>utility([...f.x,Math.log(im[i]/z)],M.cB));mode='blend';}
+  const p=softmax(u);
+  live.forEach((f,i)=>{f.p=p[i];f.fair=1/p[i];f.edge=isFinite(f.price)&&f.price>1?f.p*f.price-1:NaN;
+    f.kelly=f.edge>0?S.kellyFrac*f.edge/(f.price-1):0});
+  const book=mkt?live.reduce((a,f)=>a+1/f.price,0):NaN;
+  return{all,live,mode,book,mkt};
+}
+const pct=x=>isFinite(x)?(x*100).toFixed(1)+'%':'–';
+const money=x=>isFinite(x)?'$'+(x<10?x.toFixed(2):x<100?x.toFixed(1):Math.round(x)):'–';
+const sgn=(x,d=1)=>isFinite(x)?(x>0?'+':'')+x.toFixed(d):'–';
+function renderPickers(){
+  $('#meetPick').innerHTML=CARD.meets.map((m,i)=>`<button class="pickb" data-m="${i}" aria-pressed="${CARD.meet&&CARD.meet.slug===m.slug}">${esc(m.track)}${m.state?' <span class="muted">'+esc(m.state)+'</span>':''}</button>`).join('');
+  const m=CARD.meet;
+  $('#racePick').innerHTML=m?(m.races.length?m.races:range(10)).map(r=>`<button class="pickb" data-r="${r}" aria-pressed="${CARD.race===r}">R${r}</button>`).join(''):'';
+}
+function renderCard(){
+  const o=CARD.form;const sc=scoreCard();
+  $('#raceHead').hidden=!o;$('#cardPanel').hidden=!o;
+  if(!o){$('#cardSummary').innerHTML='';return}
+  const st=o.startTime?new Date(o.startTime):null;
+  const past=CARD.date<todayISO()||(st&&st<new Date());
+  $('#raceHead').innerHTML=`<div class="row" style="justify-content:space-between;align-items:center">
+      <div><h2>${esc(o.track||CARD.meet.track)} R${esc(o.raceNumber||CARD.race)} · ${esc(o.distance||'')}</h2>
+      <div class="small muted">${esc(o.raceName||'')} · ${esc(o.raceClass||'')} · ${esc(o.condition||'')} · ${o.prizeMoney?'$'+Number(num(o.prizeMoney)).toLocaleString():''}${st?' · '+st.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):''}</div></div>
+      ${past?'<button class="ghost" id="resBtn">Show result</button>':''}</div>`;
+  if(!sc){return}
+  const res=CARD.result;
+  const order=[...sc.live].sort((a,b)=>b.uA-a.uA).concat(sc.all.filter(f=>f.scr));
+  const maxP=Math.max(...sc.live.map(f=>f.p),0.0001);
+  const rows=order.map((f,k)=>{
+    const r=f.r;const rr=res&&res[String(f.name).toLowerCase()];
+    const runs=f.s?f.s.runs.map(x=>`${x.pos||'–'}`).join('-'):'';
+    const meta=[`B${isFinite(f.bar)?f.bar:'–'}`,`${isFinite(f.w)?f.w:'–'}kg`,r.jockey?esc(r.jockey):'',
+      f.n?`rtg ${f.proj.toFixed(1)} ±${Math.sqrt(f.v).toFixed(1)}`:'<span class="pill flag">No history</span>',
+      f.n&&f.days>S.spellDays?`<span class="pill flag">First-up ${f.days}d</span>`:'',
+      r.form?`form ${esc(r.form)}`:'',r.speedMap&&r.speedMap.runningStyle?`map ${esc(r.speedMap.runningStyle)}`:'',
+      rr?`<span class="fin ${rr.pos===1?'w':''}">Fin ${rr.pos||'–'}</span> SP ${money(rr.sp)}`:''].filter(Boolean).join(' · ');
+    return`<div class="rn ${!f.scr&&k===0?'top':''} ${f.scr?'scr':''}" data-row="${esc(f.num)}">
+      <div class="no">${esc(f.num)}</div>
+      <div class="nm"><b>${esc(f.name)}</b><div class="meta">${meta}</div></div>
+      <div class="r c-pr">${cellPr(f,maxP)}</div>
+      <div class="r c-fr">${f.scr?'':money(f.fair)}</div>
+      <div class="c-mk"><input type="number" inputmode="decimal" step="0.1" min="1" id="px${esc(f.num)}" data-px="${esc(f.num)}" value="${isFinite(f.price)?f.price:''}" placeholder="$" aria-label="Market price for ${esc(f.name)}" ${f.scr?'disabled':''}>
+        <label class="scrk"><input type="checkbox" data-scr="${esc(f.num)}" ${f.scr?'checked':''} style="width:auto"> Scr</label></div>
+      <div class="r c-ed">${cellEd(f)}</div></div>`}).join('');
+  $('#runners').innerHTML=`<div class="rn head"><div class="no">#</div><div class="nm">Runner</div><div class="r c-pr">Chance</div><div class="r c-fr">Fair</div><div class="r c-mk">Market</div><div class="r c-ed">Edge</div></div>`+rows;
+  renderCardSummary(sc);
+}
+function cellPr(f,maxP){return f.scr?'Scr':pct(f.p)+`<div class="bar"><i style="width:${(f.p/maxP*100).toFixed(0)}%"></i></div>`}
+function cellEd(f){if(f.scr||!isFinite(f.edge))return'<span class="muted">–</span>';
+  return f.edge>=S.edgeMin?`<span class="pill bet">${sgn(f.edge*100,0)}%</span><div class="small muted" style="text-align:right">${(f.kelly*100).toFixed(1)}% · $${Math.round(f.kelly*S.bank)}</div>`:`<span class="pill ${f.edge>0?'pos':'neg'}">${sgn(f.edge*100,0)}%</span>`}
+function patchCard(){
+  const sc=scoreCard();if(!sc)return;const maxP=Math.max(...sc.live.map(f=>f.p),0.0001);
+  sc.live.forEach(f=>{const row=document.querySelector(`#runners [data-row="${CSS.escape(String(f.num))}"]`);if(!row)return;
+    row.querySelector('.c-pr').innerHTML=cellPr(f,maxP);row.querySelector('.c-fr').textContent=money(f.fair);row.querySelector('.c-ed').innerHTML=cellEd(f)});
+  renderCardSummary(sc);
+}
+function renderCardSummary(sc){
+  const top=[...sc.live].sort((a,b)=>b.p-a.p)[0];const bets=sc.live.filter(f=>f.edge>=S.edgeMin);
+  const rated=sc.live.filter(f=>f.n>0).length;
+  $('#cardSummary').innerHTML=top?`
+    <div class="stat acc"><div class="k">Top rated</div><div class="v">${esc(top.name)}</div><div class="s">${pct(top.p)} · fair ${money(top.fair)}</div></div>
+    <div class="stat ${bets.length?'good':''}"><div class="k">Flagged bets (edge ≥ ${Math.round(S.edgeMin*100)}%)</div><div class="v">${bets.length}</div><div class="s">${bets.length?bets.map(b=>esc(b.name)).join(', '):isFinite(sc.book)||sc.live.some(f=>isFinite(f.price))?'None at these prices':'Enter prices to check'}</div></div>
+    <div class="stat"><div class="k">Model</div><div class="v">${sc.mode==='blend'?'Blend':'Ratings'}</div><div class="s">${sc.mode==='blend'?'Ratings combined with your prices':M.cB?'Enter every price to blend with market':'Ratings only'}</div></div>
+    <div class="stat"><div class="k">Rated from history</div><div class="v">${rated} / ${sc.live.length}</div><div class="s">${isFinite(sc.book)?'Overround '+(sc.book*100).toFixed(1)+'%':M.ready?'Unrated runners use a class-based estimate':'Sync history for ratings'}</div></div>`:'';
+}
+
+/* ================= renders ================= */
+function renderStatus(){const el=$('#status');const hk=!!getKey();
+  el.innerHTML=hk?`<b>${RACES.length.toLocaleString()}</b> races · <b>${usage().toLocaleString()}</b> / ${Number(S.dailyCap).toLocaleString()} requests today`:'No API key yet';}
+function renderHist(){
+  const n=RACES.length;const runs=RACES.reduce((a,R)=>a+R.run.length,0);const horses=M.hist.size;
+  const d0=n?RACES[0].d:null,d1=n?RACES[n-1].d:null;
+  $('#histStats').innerHTML=`
+    <div class="stat acc"><div class="k">Races stored</div><div class="v">${n.toLocaleString()}</div><div class="s">${runs.toLocaleString()} runs</div></div>
+    <div class="stat"><div class="k">Horses rated</div><div class="v">${horses.toLocaleString()}</div><div class="s">&nbsp;</div></div>
+    <div class="stat"><div class="k">Span</div><div class="v">${n?fmtD(d0)+' – '+fmtD(d1):'–'}</div><div class="s">${DAYS.size} days synced</div></div>
+    <div class="stat"><div class="k">Results mode</div><div class="v">${S.resMode==='meeting'?'Per meeting':S.resMode==='race'?'Per race':'Detecting'}</div><div class="s">${S.resMode==='meeting'?'≈ 25–40 requests a day':S.resMode==='race'?'≈ 200–300 requests a day':'Decided on first sync'}</div></div>`;
+  $('#rawOut').textContent=RAW;
+}
+function renderBacktest(){
+  const T=M.test;
+  if(!M.ready||!T){$('#btSummary').innerHTML=`<p class="note">${M.ready?`Only ${M.nRecs} races qualify so far (runners need history, and the first ${S.burnIn} days are burn-in). Sync more history; around 3 months gives a first read, 6+ months a useful one.`:'Sync history first. The backtest needs results to rate and test against.'}</p>`;
+    $('#coefBody').innerHTML='';$('#calBody').innerHTML='';$('#betBody').innerHTML='';$('#calChart').innerHTML='';return}
+  const skill=1-T.llA/T.llU;
+  $('#btSummary').innerHTML=`
+    <div class="stat"><div class="k">Test races</div><div class="v">${T.n}</div><div class="s">${fmtD(M.teFrom)} – ${fmtD(M.teTo)} · trained on ${M.nTr}</div></div>
+    <div class="stat acc"><div class="k">Ratings model log-loss</div><div class="v">${T.llA.toFixed(3)}</div><div class="s">Random pick ${T.llU.toFixed(3)} · skill ${(skill*100).toFixed(1)}%</div></div>
+    <div class="stat"><div class="k">SP market log-loss</div><div class="v">${T.nM?T.llM.toFixed(3):'–'}</div><div class="s">${T.nM?`Ratings model on same ${T.nM} races: ${T.llAM.toFixed(3)}`:'No SP in results'}</div></div>
+    <div class="stat ${T.nM&&T.llB<T.llM?'good':''}"><div class="k">Blend log-loss</div><div class="v">${T.nM&&M.cBtr?T.llB.toFixed(3):'–'}</div><div class="s">${T.nM&&M.cBtr?(T.llB<T.llM?`Beats SP by ${(T.llM-T.llB).toFixed(4)}: the ratings add information`:'Not beating SP yet: ratings add nothing over the market'):'–'}</div></div>`;
+  $('#coefBody').innerHTML=FEATS.map((f,k)=>`<tr><td>${f}</td><td class="n mono">${M.cA?sgn(M.cA[k],3):'–'}</td><td class="n mono">${M.cB?sgn(M.cB[k],3):'–'}</td></tr>`).join('')+
+    `<tr><td>Market (log chance)</td><td class="n mono">–</td><td class="n mono">${M.cB?sgn(M.cB[FEATS.length],3):'–'}</td></tr>`;
+  $('#calBody').innerHTML=T.cal.map(b=>`<tr><td>${Math.round(b.lo*100)}–${Math.min(100,Math.round(b.hi*100))}%</td><td class="n mono">${b.n}</td><td class="n mono">${b.n?pct(b.sp/b.n):'–'}</td><td class="n mono">${b.n?pct(b.w/b.n):'–'}</td></tr>`).join('');
+  $('#betBody').innerHTML=T.bets.map(b=>`<tr><td>${b.l}</td><td class="n mono">${b.nA}</td><td class="n mono">${b.wA}</td><td class="n mono">${b.nA?`<span class="pill ${b.plA>0?'bet':'neg'}">${sgn(b.plA/b.nA*100)}%</span>`:'–'}</td><td class="n mono">${b.nB}</td><td class="n mono">${b.nB?`<span class="pill ${b.plB>0?'bet':'neg'}">${sgn(b.plB/b.nB*100)}%</span>`:'–'}</td></tr>`).join('');
+  drawCal(T.cal);
+}
+function drawCal(B){
+  const pts=B.filter(b=>b.n>=10).map(b=>({x:b.sp/b.n,y:b.w/b.n,n:b.n}));if(!pts.length){$('#calChart').innerHTML='';return}
+  const top=Math.ceil(Math.max(0.3,...pts.map(p=>Math.max(p.x,p.y)))*1.1*10)/10;
+  const W=320,H=230,L=40,Bm=30,T=10,R=12,sx=v=>L+v/top*(W-L-R),sy=v=>H-Bm-v/top*(H-Bm-T);
+  let g='';for(let v=0;v<=top+1e-9;v+=0.1){g+=`<line x1="${L}" x2="${W-R}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line)"/><text x="${L-6}" y="${sy(v)+4}" text-anchor="end">${Math.round(v*100)}%</text><text x="${sx(v)}" y="${H-Bm+16}" text-anchor="middle">${Math.round(v*100)}%</text>`}
+  const mx=Math.max(...pts.map(p=>p.n));
+  $('#calChart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:420px" role="img" aria-label="Predicted versus actual win rate">${g}<line x1="${sx(0)}" y1="${sy(0)}" x2="${sx(top)}" y2="${sy(top)}" stroke="var(--muted)" stroke-dasharray="4 4"/>${pts.map(p=>`<circle cx="${sx(p.x)}" cy="${sy(p.y)}" r="${4+8*Math.sqrt(p.n/mx)}" fill="var(--accent)" fill-opacity=".75"/>`).join('')}<text x="${(L+W-R)/2}" y="${H-2}" text-anchor="middle">Predicted chance</text></svg><p class="note small">On the dashed line means honest prices. Above it the model is too timid; below it, over-confident.</p>`;
+}
+function renderSettings(){
+  $('#keyIn').value=getKey();$('#country').value=S.country;$('#dailyCap').value=S.dailyCap;
+  $('#setGrid').innerHTML=SET.map(([k,l,st,d])=>`<div><label class="f">${l}<input id="set_${k}" type="number" step="${st}" value="${S[k]}"></label><div class="d">${d}</div></div>`).join('');
+}
+function renderAll(){renderStatus();renderHist();renderBacktest();renderCard();$('#onboard').hidden=!!getKey()&&RACES.length>0}
+
+/* ================= events ================= */
+let tab='card';
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  ['card','bt','hist','set'].forEach(t=>$('#tab-'+t).hidden=t!==tab);lsSet('pf.tab',tab)}));
+$('#loadMeet').addEventListener('click',loadMeetings);
+$('#cDate').addEventListener('change',loadMeetings);
+$('#meetPick').addEventListener('click',e=>{const b=e.target.closest('[data-m]');if(!b)return;CARD.meet=CARD.meets[+b.dataset.m];CARD.race=null;CARD.form=null;renderPickers();renderCard()});
+$('#racePick').addEventListener('click',e=>{const b=e.target.closest('[data-r]');if(!b)return;loadRace(CARD.meet,+b.dataset.r)});
+$('#runners').addEventListener('input',e=>{const n=e.target.dataset.px;if(n==null)return;CARD.prices[n]=e.target.value;patchCard()});
+$('#runners').addEventListener('change',e=>{const n=e.target.dataset.scr;if(n==null)return;CARD.scr[n]=e.target.checked;renderCard()});
+$('#raceHead').addEventListener('click',e=>{if(e.target.id==='resBtn')loadResult()});
+$('#syncBtn').addEventListener('click',()=>syncRange($('#hFrom').value,$('#hTo').value));
+$('#topUp').addEventListener('click',()=>{const last=RACES.length?RACES[RACES.length-1].d:addDays(todayISO(),-30);syncRange(addDays(last,-2),addDays(todayISO(),-1))});
+$('#stopBtn').addEventListener('click',()=>{STOP=true;setSyncMsg('Stopping after the current request…')});
+$('#wipeBtn').addEventListener('click',()=>{$('#wipeYes').hidden=false;$('#wipeNo').hidden=false;$('#wipeBtn').hidden=true});
+$('#wipeNo').addEventListener('click',()=>{$('#wipeYes').hidden=true;$('#wipeNo').hidden=true;$('#wipeBtn').hidden=false});
+$('#wipeYes').addEventListener('click',async()=>{await idbClear('races');await idbClear('days');await idbClear('cache');S.resMode='auto';saveS();await loadHistory();rebuild();$('#wipeNo').click();setSyncMsg('History deleted.','ok')});
+$('#keySave').addEventListener('click',()=>{const k=$('#keyIn').value.trim();if(!k){keyMsg('Paste your key first.',true);return}lsSet('pf.key',k);keyMsg('Key saved on this device.',false,true);renderAll()});
+$('#keyForget').addEventListener('click',()=>{lsDel('pf.key');$('#keyIn').value='';keyMsg('Key removed from this device.');renderAll()});
+$('#keyTest').addEventListener('click',async()=>{const k=$('#keyIn').value.trim();if(k)lsSet('pf.key',k);keyMsg('Testing…');
+  try{const d=addDays(todayISO(),-1);const j=await api('/form/meetings',{date:d,race_code:'gallops',country:S.country});const m=j?parseMeetings(j):[];
+    keyMsg(`Key works. ${m.length} meetings found for ${fmtD(d)}.`,false,true)}catch(e){keyMsg(e.message,true)}renderAll()});
+function keyMsg(t,err,ok){const el=$('#keyMsg');el.textContent=t;el.className='small '+(err?'msg err':ok?'msg ok':'muted')}
+$('#country').addEventListener('change',e=>{S.country=e.target.value;saveS()});
+$('#dailyCap').addEventListener('change',e=>{const v=+e.target.value;if(v>0){S.dailyCap=v;saveS();renderStatus()}});
+let rbT=null;
+$('#setGrid').addEventListener('change',e=>{const k=e.target.id.replace('set_','');const v=parseFloat(e.target.value);if(!isFinite(v))return;S[k]=v;saveS();clearTimeout(rbT);rbT=setTimeout(rebuild,50)});
+$('#resetSet').addEventListener('click',()=>{const keep={country:S.country,dailyCap:S.dailyCap,resMode:S.resMode};S={...DEF,...keep};saveS();renderSettings();rebuild()});
+
+/* ================= boot ================= */
+(async function boot(){
+  const t=lsGet('pf.tab');if(t&&t!=='card'){const b=document.querySelector(`nav.tabs button[data-tab="${t}"]`);if(b)b.click()}
+  $('#cDate').value=todayISO();$('#hTo').value=addDays(todayISO(),-1);$('#hFrom').value=addDays(todayISO(),-120);
+  renderSettings();renderStatus();renderHist();renderBacktest();$('#onboard').hidden=!!getKey();
+  await loadHistory();renderStatus();renderHist();
+  setTimeout(()=>{rebuild();if(getKey())loadMeetings()},20);
+})();
+})();
+</script>
+</body>
+</html>
