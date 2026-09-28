@@ -159,7 +159,7 @@ svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
     <div id="cardSummary" class="summary"></div>
     <div id="cardPanel" class="panel" hidden>
       <div class="runners" id="runners"></div>
-      <p class="note small" style="margin-top:10px">Enter the price you can actually get in the Market column. Pro data has no live odds or scratchings, so tick <b>Scr</b> for late scratchings. Probabilities recalculate for the remaining field.</p>
+      <p class="note small" style="margin-top:10px">Edges only appear once every runner has a price, because they come from the model combined with the market. The model on its own disagrees with the market most on long shots, and in testing those bets lost heavily. Enter the price you can actually get in the Market column. Pro data has no live odds or scratchings, so tick <b>Scr</b> for late scratchings. Probabilities recalculate for the remaining field.</p>
     </div>
   </section>
 
@@ -618,7 +618,9 @@ function scoreCard(){
   let u=live.map(f=>utility(f.x,M.cA));live.forEach((f,i)=>f.uA=u[i]);out.mode='ratings';
   if(isFinite(book)&&M.cB&&S.blend!==false){const im=live.map(f=>1/f.price),z=im.reduce((a,c)=>a+c,0);u=live.map((f,i)=>utility([...f.x,Math.log(im[i]/z)],M.cB));out.mode='blend'}
   const p=softmax(u);
-  live.forEach((f,i)=>{f.p=p[i];f.fair=1/p[i];f.edge=isFinite(f.price)&&f.price>1?f.p*f.price-1:NaN;
+  /* edges only from the market blend: model-only edges against SP lost heavily in testing */
+  const blend=out.mode==='blend';out.priced=live.filter(f=>isFinite(f.price)&&f.price>1).length;
+  live.forEach((f,i)=>{f.p=p[i];f.fair=1/p[i];f.edge=blend?f.p*f.price-1:NaN;
     f.kelly=f.edge>0?S.kellyFrac*f.edge/(f.price-1):0});
   return out;
 }
@@ -680,7 +682,7 @@ function renderCardSummary(sc){
   const prov=!M.test||M.test.n<300;
   $('#cardSummary').innerHTML=(prov?`<div class="msg" style="grid-column:1/-1"><b>Provisional.</b> The model is fitted on ${M.nRecs} races${M.test?` and tested on ${M.test.n}`:''}. Treat edges as a watch list until the backtest has 300+ test races and beats SP.</div>`:'')+`
     <div class="stat acc"><div class="k">Top rated</div><div class="v">${esc(top.name)}</div><div class="s">${pct(top.p)} · fair ${money(top.fair)}</div></div>
-    <div class="stat ${bets.length&&!prov?'good':''}"><div class="k">Flagged (edge ≥ ${Math.round(S.edgeMin*100)}%)</div><div class="v">${bets.length}</div><div class="s">${bets.length?bets.map(b=>esc(b.name)).join(', '):sc.live.some(f=>isFinite(f.price))?'None at these prices':'Enter prices to check'}</div></div>
+    <div class="stat ${bets.length&&!prov?'good':''}"><div class="k">Flagged (edge ≥ ${Math.round(S.edgeMin*100)}%)</div><div class="v">${bets.length}</div><div class="s">${sc.mode==='blend'?(bets.length?bets.map(b=>esc(b.name)).join(', '):'None at these prices'):!M.cB?'Needs the market blend, which fits once enough races have SP':`Enter every runner's price to see edges (${sc.priced} of ${sc.live.length} entered)`}</div></div>
     <div class="stat"><div class="k">Model</div><div class="v">${sc.mode==='blend'?'Blend':'Form + ratings'}</div><div class="s">${sc.mode==='blend'?'Combined with your prices':M.cB?'Enter every price to blend with market':'Market blend not fitted yet'}</div></div>
     <div class="stat"><div class="k">Margin history</div><div class="v">${sc.rated} / ${sc.live.length}</div><div class="s">${isFinite(sc.book)?'Overround '+(sc.book*100).toFixed(1)+'%':'Others priced from FormFav form'}</div></div>`;
 }
