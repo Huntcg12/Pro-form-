@@ -276,7 +276,7 @@ function raceFeats(field){
   });
 }
 function runPass(pp){
-  const st=new Map(),hist=new Map(),recs=[],Ls=[];
+  const st=new Map(),hist=new Map(),recs=[],Ls=[],leak={checked:0,leaked:0,days:{}};
   const t0=RACES.length?dayNum(RACES[0].d):0;
   for(const R of RACES){
     const D=dayNum(R.d),kpl=kplFor(R.dist);
@@ -285,6 +285,12 @@ function runPass(pp){
     field.forEach(f=>{const s=st.get(f.k);f.ff=R.ff?R.ff[f.k]||null:null;
       if(!s){f.m=(prior??0)-S.newGap;f.v=S.newVar;f.n=0;f.days=NaN;f.lb=NaN}
       else{f.days=D-s.D;f.m=s.m;f.v=Math.min(S.newVar,s.v+S.driftPerDay*f.days);f.n=s.n;f.lb=s.lb}});
+    /* leak check: pre-race form's "last start" should rarely equal this race's finish (~10–15%).
+       If most runners match, FormFav's form already included this race, so it can't be used. */
+    const wf=field.filter(f=>f.ff&&isFinite(f.ff[4])&&f.pos>=1);
+    if(wf.length>=6){leak.checked++;const mt=wf.filter(f=>Math.min(10,f.ff[4])===Math.min(10,f.pos)).length;
+      const dd=leak.days[R.d]||(leak.days[R.d]={n:0,l:0});dd.n++;
+      if(mt/wf.length>0.5){leak.leaked++;dd.l++;field.forEach(f=>f.ff=null)}}
     const N=field.length,wi=field.findIndex(f=>f.pos===1);
     const ffCov=field.filter(f=>f.ff).length/Math.max(1,N);
     if(pp&&D-t0>=S.burnIn&&wi>=0&&N>=4&&ffCov>=0.8){
@@ -303,7 +309,7 @@ function runPass(pp){
       if(!hist.has(f.k))hist.set(f.k,[]);hist.get(f.k).push({D,d:R.d,m:ns.m,v:ns.v,n:ns.n,lb:ns.lb,pos:f.pos,mg:f.mg,t:R.t,dist:R.dist,g:R.g,name:f.name})});
     field.filter(f=>!(f.pos>=1)).forEach(f=>{const s=st.get(f.k);if(s)st.set(f.k,{...s,D})});
   }
-  return{st,hist,recs,Ls};
+  return{st,hist,recs,Ls,leak};
 }
 function ols(pairs){const n=pairs.length;if(n<20)return null;let sx=0,sy=0,sxx=0,sxy=0;pairs.forEach(([x,y])=>{sx+=x;sy+=y;sxx+=x*x;sxy+=x*y});const b=(n*sxy-sx*sy)/(n*sxx-sx*sx||1);return{a:(sy-b*sx)/n,b}}
 function softmax(u){const m=Math.max(...u);const e=u.map(x=>Math.exp(x-m));const z=e.reduce((a,c)=>a+c,0);return e.map(x=>x/z)}
@@ -369,7 +375,7 @@ function buildModel(races,s){S=s;RACES=races;
   const FA=fit?fitCV(recs,false):{c:null,lam:null},FB=fit&&allM.length>=MINFIT*0.75?fitCV(allM,true):{c:null,lam:null};
   const cA=FA.c,cB=FB.c;
   const rated=recs.length?recs.reduce((a,r)=>a+r.rated,0)/recs.length:0;
-  return{ready:true,hist:p2.hist,pp,cA,cB,cAtr,cBtr,test,lamA:FA.lam,lamB:FB.lam,nRecs:recs.length,nTr:tr.length,nTe:te.length,rated,
+  return{ready:true,hist:p2.hist,leak:p2.leak,pp,cA,cB,cAtr,cBtr,test,lamA:FA.lam,lamB:FB.lam,nRecs:recs.length,nTr:tr.length,nTe:te.length,rated,
     teFrom:te[0]&&te[0].d,teTo:te.length&&te[te.length-1].d};
 }
 </script>
@@ -712,6 +718,7 @@ function renderHist(){
   const d0=n?RACES[0].d:null,d1=n?RACES[n-1].d:null;const fresh=freshness();
   $('#histStats').innerHTML=`
     <div class="stat acc"><div class="k">Races stored</div><div class="v">${n.toLocaleString()}</div><div class="s">${runs.toLocaleString()} runs</div></div>
+    ${M.leak&&M.leak.checked?`<div class="stat ${M.leak.leaked?'':'good'}"><div class="k">Form captured after the race</div><div class="v">${M.leak.leaked} / ${M.leak.checked}</div><div class="s">${M.leak.leaked?'Those races were left out of the fit: their form already included the result':'Form is genuinely pre-race'}</div></div>`:''}
     <div class="stat"><div class="k">Races with form</div><div class="v">${RACES.filter(R=>R.ff).length.toLocaleString()}</div><div class="s">${horses.toLocaleString()} horses with margin history</div></div>
     <div class="stat"><div class="k">Span</div><div class="v">${n?fmtD(d0)+' – '+fmtD(d1):'–'}</div><div class="s">${DAYS.size} days synced</div></div>
     <div class="stat ${fresh.warn?'':'good'}"><div class="k">Last topped up</div><div class="v">${fresh.last?fmtD(fresh.last):'Never'}</div><div class="s">${fresh.msg}</div></div>
