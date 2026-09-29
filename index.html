@@ -174,7 +174,7 @@ svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
       <div class="panel stack">
         <h3>What the fit learned</h3>
         <div class="scroll"><table><thead><tr><th>Factor</th><th class="n">Form + ratings</th><th class="n">With market</th></tr></thead><tbody id="coefBody"></tbody></table></div>
-        <p class="note small">Weights on the log-odds scale per unit of each factor. A weight near zero means the factor adds nothing once the others are known.</p>
+        <p class="note small">Weights on the log-odds scale per unit of each factor. A weight near zero means the factor adds nothing once the others are known. <span id="lamNote"></span></p>
       </div>
       <div class="panel stack">
         <h3>Calibration (test races)</h3>
@@ -308,25 +308,37 @@ function runPass(pp){
 function ols(pairs){const n=pairs.length;if(n<20)return null;let sx=0,sy=0,sxx=0,sxy=0;pairs.forEach(([x,y])=>{sx+=x;sy+=y;sxx+=x*x;sxy+=x*y});const b=(n*sxy-sx*sy)/(n*sxx-sx*sx||1);return{a:(sy-b*sx)/n,b}}
 function softmax(u){const m=Math.max(...u);const e=u.map(x=>Math.exp(x-m));const z=e.reduce((a,c)=>a+c,0);return e.map(x=>x/z)}
 function rowsOf(r,mkt){return mkt?r.X.map((x,i)=>[...x,r.lm[i]]):r.X}
-function fitCL(recs,mkt,iters=300){
+/* Conditional logit. Coefficients are shrunk toward a prior: 0 for every form/rating factor and,
+   in the market blend, 1 for the market's own log-chance, so thin data falls back to the market
+   instead of wandering away from it. */
+function fitCL(recs,mkt,iters=300,lam=0.1){
   if(recs.length<30)return null;
   const K=FEATS.length+(mkt?1:0);const all=[];recs.forEach(r=>rowsOf(r,mkt).forEach(x=>all.push(x)));
   const mu=new Array(K).fill(0),sd=new Array(K).fill(0);
   all.forEach(x=>x.forEach((v,k)=>mu[k]+=v));mu.forEach((_,k)=>mu[k]/=all.length);
   all.forEach(x=>x.forEach((v,k)=>sd[k]+=(v-mu[k])**2));sd.forEach((_,k)=>sd[k]=Math.sqrt(sd[k]/all.length)||1);
   const Z=recs.map(r=>rowsOf(r,mkt).map(x=>x.map((v,k)=>(v-mu[k])/sd[k])));
-  const b=new Array(K).fill(0);if(mkt)b[K-1]=1;
-  /* stronger shrinkage while data is thin, easing as races accumulate */
-  const lam=Math.max(0.002,Math.min(0.05,6/recs.length));
+  const b0=new Array(K).fill(0);if(mkt)b0[K-1]=sd[K-1];
+  const b=b0.slice();
   const m1=new Array(K).fill(0),m2=new Array(K).fill(0),lr=0.05;
   for(let it=1;it<=iters;it++){
     const g=new Array(K).fill(0);
     for(let j=0;j<Z.length;j++){const z=Z[j],wi=recs[j].wi;const u=z.map(x=>x.reduce((a,v,k)=>a+v*b[k],0));const p=softmax(u);
       for(let k=0;k<K;k++){let e=0;for(let i=0;i<z.length;i++)e+=p[i]*z[i][k];g[k]+=z[wi][k]-e}}
-    for(let k=0;k<K;k++){const gk=g[k]/Z.length-lam*b[k];m1[k]=0.9*m1[k]+0.1*gk;m2[k]=0.999*m2[k]+0.001*gk*gk;
+    for(let k=0;k<K;k++){const gk=g[k]/Z.length-lam*(b[k]-b0[k]);m1[k]=0.9*m1[k]+0.1*gk;m2[k]=0.999*m2[k]+0.001*gk*gk;
       b[k]+=lr*(m1[k]/(1-0.9**it))/(Math.sqrt(m2[k]/(1-0.999**it))+1e-8)}
   }
   return b.map((v,k)=>v/sd[k]);
+}
+function llOf(recs,c,mkt){let ll=0;for(const r of recs){const p=softmax(rowsOf(r,mkt).map(x=>utility(x,c)));ll-=Math.log(p[r.wi])}return ll/Math.max(1,recs.length)}
+/* pick the shrinkage by testing on the latest quarter of the training races (time order kept) */
+const LAMS=[3,1,0.3,0.1,0.03,0.01];
+function fitCV(recs,mkt){
+  if(recs.length<30)return{c:null,lam:null};
+  if(recs.length<80)return{c:fitCL(recs,mkt,300,1),lam:1};
+  const cut=Math.floor(recs.length*0.75),a=recs.slice(0,cut),v=recs.slice(cut);
+  let best=null;for(const lam of LAMS){const c=fitCL(a,mkt,200,lam);if(!c)continue;const ll=llOf(v,c,mkt);if(!best||ll<best.ll)best={lam,ll}}
+  return{c:fitCL(recs,mkt,300,best.lam),lam:best.lam};
 }
 const utility=(x,c)=>x.reduce((a,v,k)=>a+v*(c[k]||0),0);
 function evalSet(recs,cA,cB){
@@ -352,11 +364,12 @@ function buildModel(races,s){S=s;RACES=races;
   const recs=p2.recs;const cut=Math.floor(recs.length*0.75);const tr=recs.slice(0,cut),te=recs.slice(cut);
   const trM=tr.filter(r=>r.lm),allM=recs.filter(r=>r.lm);
   const fit=recs.length>=MINFIT;
-  const cAtr=fit?fitCL(tr,false):null,cBtr=fit?fitCL(trM,true):null;
+  const A=fit?fitCV(tr,false):{c:null},B=fit?fitCV(trM,true):{c:null};const cAtr=A.c,cBtr=B.c;
   const test=fit&&te.length>=20&&cAtr?evalSet(te,cAtr,cBtr):null;
-  const cA=fit?fitCL(recs,false):null,cB=fit&&allM.length>=MINFIT*0.75?fitCL(allM,true):null;
+  const FA=fit?fitCV(recs,false):{c:null,lam:null},FB=fit&&allM.length>=MINFIT*0.75?fitCV(allM,true):{c:null,lam:null};
+  const cA=FA.c,cB=FB.c;
   const rated=recs.length?recs.reduce((a,r)=>a+r.rated,0)/recs.length:0;
-  return{ready:true,hist:p2.hist,pp,cA,cB,cAtr,cBtr,test,nRecs:recs.length,nTr:tr.length,nTe:te.length,rated,
+  return{ready:true,hist:p2.hist,pp,cA,cB,cAtr,cBtr,test,lamA:FA.lam,lamB:FB.lam,nRecs:recs.length,nTr:tr.length,nTe:te.length,rated,
     teFrom:te[0]&&te[0].d,teTo:te.length&&te[te.length-1].d};
 }
 </script>
@@ -717,6 +730,7 @@ function renderBacktest(){
     <div class="stat ${T.nM&&T.llB<T.llM?'good':''}"><div class="k">Blend log-loss</div><div class="v">${T.nM&&M.cBtr?T.llB.toFixed(3):'–'}</div><div class="s">${T.nM&&M.cBtr?(T.llB<T.llM?`Beats SP by ${(T.llM-T.llB).toFixed(4)}: the ratings add information`:'Not beating SP yet: ratings add nothing over the market'):'–'}</div></div>`;
   $('#coefBody').innerHTML=FEATS.map((f,k)=>`<tr><td>${f}</td><td class="n mono">${M.cA?sgn(M.cA[k],3):'–'}</td><td class="n mono">${M.cB?sgn(M.cB[k],3):'–'}</td></tr>`).join('')+
     `<tr><td>Market (log chance)</td><td class="n mono">–</td><td class="n mono">${M.cB?sgn(M.cB[FEATS.length],3):'–'}</td></tr>`;
+  $('#lamNote').textContent=M.lamA!=null?`Shrinkage picked from the data: ${M.lamA} for the model, ${M.lamB??'–'} for the blend. Higher means the data is still too thin to trust many factors, so weights are held near zero (and the blend near the market).`:'';
   $('#calBody').innerHTML=T.cal.map(b=>`<tr><td>${Math.round(b.lo*100)}–${Math.min(100,Math.round(b.hi*100))}%</td><td class="n mono">${b.n}</td><td class="n mono">${b.n?pct(b.sp/b.n):'–'}</td><td class="n mono">${b.n?pct(b.w/b.n):'–'}</td></tr>`).join('');
   $('#betBody').innerHTML=T.bets.map(b=>`<tr><td>${b.l}</td><td class="n mono">${b.nA}</td><td class="n mono">${b.wA}</td><td class="n mono">${b.nA?`<span class="pill ${b.plA>0?'bet':'neg'}">${sgn(b.plA/b.nA*100)}%</span>`:'–'}</td><td class="n mono">${b.nB}</td><td class="n mono">${b.nB?`<span class="pill ${b.plB>0?'bet':'neg'}">${sgn(b.plB/b.nB*100)}%</span>`:'–'}</td></tr>`).join('');
   drawCal(T.cal);
