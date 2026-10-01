@@ -356,10 +356,14 @@ function evalSet(recs,cA,cB){
     pA.forEach((p,i)=>{const b=E.cal.find(c=>p>=c.lo&&p<c.hi);b.n++;b.sp+=p;if(i===r.wi)b.w++;
       const sp=r.sp[i];if(isFinite(sp)&&sp>1){const e=p*sp-1;const bb=E.bets.find(x=>e>=x.lo&&e<x.hi);if(bb){bb.nA++;if(i===r.wi){bb.wA++;bb.plA+=sp-1}else bb.plA-=1}}});
     if(r.lm){E.nM++;E.llM-=r.lm[r.wi];E.llAM-=Math.log(pA[r.wi]);
-      if(cB){const pB=softmax(rowsOf(r,true).map(x=>utility(x,cB)));E.llB-=Math.log(pB[r.wi]);
+      if(cB){const pB=softmax(rowsOf(r,true).map(x=>utility(x,cB)));E.llB-=Math.log(pB[r.wi]);(E.dif||(E.dif=[])).push(r.lm[r.wi]-Math.log(pB[r.wi]));
         pB.forEach((p,i)=>{const sp=r.sp[i];const e=p*sp-1;const bb=E.bets.find(x=>e>=x.lo&&e<x.hi);if(bb){bb.nB++;if(i===r.wi)bb.plB+=sp-1;else bb.plB-=1}})}}
   }
   const n=E.n||1;E.llA/=n;E.llU/=n;if(E.nM){E.llM/=E.nM;E.llAM/=E.nM;E.llB/=E.nM}
+  /* race-by-race blend minus SP log-loss: mean and standard error, so the verdict accounts for luck */
+  if(E.dif&&E.dif.length>=10){const d=E.dif,k=d.length,m=d.reduce((a,c)=>a+c,0)/k;const v=d.reduce((a,c)=>a+(c-m)**2,0)/(k-1);
+    E.gap=-m;E.gapSE=Math.sqrt(v/k);E.verdict=E.gap>2*E.gapSE?'beats':E.gap<-2*E.gapSE?'worse':'level'}
+  delete E.dif;
   return E;
 }
 function buildModel(races,s){S=s;RACES=races;
@@ -698,8 +702,8 @@ function renderCardSummary(sc){
   if(sc.mode==='none'){
     $('#cardSummary').innerHTML=`<div class="msg" style="grid-column:1/-1"><b>Not priced yet.</b> ${esc(sc.reason||'')} Chances and edges stay hidden until the fitted model can back them up, so nothing here is a bet signal.</div>`;return}
   const top=[...sc.live].sort((a,b)=>b.p-a.p)[0];const bets=sc.live.filter(f=>f.edge>=S.edgeMin);
-  const prov=!M.test||M.test.n<300;
-  $('#cardSummary').innerHTML=(prov?`<div class="msg" style="grid-column:1/-1"><b>Provisional.</b> The model is fitted on ${M.nRecs} races${M.test?` and tested on ${M.test.n}`:''}. Treat edges as a watch list until the backtest has 300+ test races and beats SP.</div>`:'')+`
+  const prov=!M.test||M.test.n<300||M.test.verdict!=='beats';
+  $('#cardSummary').innerHTML=(prov?`<div class="msg" style="grid-column:1/-1"><b>Provisional.</b> The model is fitted on ${M.nRecs} races${M.test?` and tested on ${M.test.n}`:''}. Treat edges as a watch list until the backtest has 300+ test races and the blend beats SP by more than luck explains.</div>`:'')+`
     <div class="stat acc"><div class="k">Top rated</div><div class="v">${esc(top.name)}</div><div class="s">${pct(top.p)} · fair ${money(top.fair)}</div></div>
     <div class="stat ${bets.length&&!prov?'good':''}"><div class="k">Flagged (edge ≥ ${Math.round(S.edgeMin*100)}%)</div><div class="v">${bets.length}</div><div class="s">${sc.mode==='blend'?(bets.length?bets.map(b=>esc(b.name)).join(', '):'None at these prices'):!M.cB?'Needs the market blend, which fits once enough races have SP':`Enter every runner's price to see edges (${sc.priced} of ${sc.live.length} entered)`}</div></div>
     <div class="stat"><div class="k">Model</div><div class="v">${sc.mode==='blend'?'Blend':'Form + ratings'}</div><div class="s">${sc.mode==='blend'?'Combined with your prices':M.cB?'Enter every price to blend with market':'Market blend not fitted yet'}</div></div>
@@ -734,7 +738,10 @@ function renderBacktest(){
     <div class="stat"><div class="k">Test races</div><div class="v">${T.n}</div><div class="s">${fmtD(M.teFrom)} – ${fmtD(M.teTo)} · trained on ${M.nTr}</div></div>
     <div class="stat acc"><div class="k">Model log-loss</div><div class="v">${T.llA.toFixed(3)}</div><div class="s">Random pick ${T.llU.toFixed(3)} · skill ${(skill*100).toFixed(1)}%</div></div>
     <div class="stat"><div class="k">SP market log-loss</div><div class="v">${T.nM?T.llM.toFixed(3):'–'}</div><div class="s">${T.nM?`Model on same ${T.nM} races: ${T.llAM.toFixed(3)}`:'No SP in results'}</div></div>
-    <div class="stat ${T.nM&&T.llB<T.llM?'good':''}"><div class="k">Blend log-loss</div><div class="v">${T.nM&&M.cBtr?T.llB.toFixed(3):'–'}</div><div class="s">${T.nM&&M.cBtr?(T.llB<T.llM?`Beats SP by ${(T.llM-T.llB).toFixed(4)}: the ratings add information`:'Not beating SP yet: ratings add nothing over the market'):'–'}</div></div>`;
+    <div class="stat ${T.verdict==='beats'?'good':''}"><div class="k">Blend log-loss</div><div class="v">${T.nM&&M.cBtr?T.llB.toFixed(3):'–'}</div><div class="s">${!T.verdict?'–':
+      T.verdict==='beats'?`<b>Beats SP</b> by ${T.gap.toFixed(4)} (luck range ±${(2*T.gapSE).toFixed(4)}). The ratings add real information${T.n<300?', but confirm it holds to 300+ test races':''}.`:
+      T.verdict==='worse'?`<b>Worse than SP</b> by ${(-T.gap).toFixed(4)}, more than luck explains (±${(2*T.gapSE).toFixed(4)}). Don't use edges.`:
+      `<b>Level with SP.</b> Gap ${T.gap>=0?'+':''}${T.gap.toFixed(4)} is inside the luck range of ±${(2*T.gapSE).toFixed(4)}. No proven edge yet.`}</div></div>`;
   $('#coefBody').innerHTML=FEATS.map((f,k)=>`<tr><td>${f}</td><td class="n mono">${M.cA?sgn(M.cA[k],3):'–'}</td><td class="n mono">${M.cB?sgn(M.cB[k],3):'–'}</td></tr>`).join('')+
     `<tr><td>Market (log chance)</td><td class="n mono">–</td><td class="n mono">${M.cB?sgn(M.cB[FEATS.length],3):'–'}</td></tr>`;
   $('#lamNote').textContent=M.lamA!=null?`Shrinkage picked from the data: ${M.lamA} for the model, ${M.lamB??'–'} for the blend. Higher means the data is still too thin to trust many factors, so weights are held near zero (and the blend near the market).`:'';
