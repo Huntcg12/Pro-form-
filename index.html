@@ -98,6 +98,7 @@ td.n,th.n{text-align:right}
 .rn .scrk{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
 .fin{font-family:var(--display);font-weight:700}
 .fin.w{color:var(--good)}
+.rn .res{font-size:12px;color:var(--muted);margin-block:2px;font-family:var(--mono)}
 @media (max-width:620px){
   .rn{grid-template-columns:28px minmax(0,1fr) 56px 76px;grid-template-areas:"no nm pr mk" "no nm fr ed"}
   .rn .no{grid-area:no}.rn .nm{grid-area:nm}.rn .c-pr{grid-area:pr}.rn .c-fr{grid-area:fr}.rn .c-mk{grid-area:mk}.rn .c-ed{grid-area:ed}
@@ -676,11 +677,12 @@ function renderCard(){
       f.n?`rtg ${f.proj.toFixed(1)} ±${Math.sqrt(f.v).toFixed(1)}`:'<span class="pill flag">No margin history</span>',
       r.stats&&r.stats.overall?`${+r.stats.overall.starts||0} st ${+r.stats.overall.wins||0}W`:'',
       f.n&&f.days>S.spellDays?`<span class="pill flag">First-up ${f.days}d</span>`:'',
-      r.form?`form ${esc(r.form)}`:'',r.speedMap&&r.speedMap.runningStyle?`map ${esc(r.speedMap.runningStyle)}`:'',
-      rr?`<span class="fin ${rr.pos===1?'w':''}">Fin ${rr.pos||'–'}</span> SP ${money(rr.sp)}`:''].filter(Boolean).join(' · ');
+      r.form?`form ${esc(r.form)}`:'',r.speedMap&&r.speedMap.runningStyle?`map ${esc(r.speedMap.runningStyle)}`:'',].filter(Boolean).join(' · ');
+    const ord=n=>n+(n%100>=11&&n%100<=13?'th':['th','st','nd','rd'][n%10]||'th');
+    const resLine=rr?`<div class="res"><span class="pill ${rr.pos===1?'bet':rr.pos<=3?'pos':'neg'}">${rr.pos?ord(rr.pos):'Did not finish'}</span> SP ${money(rr.sp)}${rr.pos>1&&isFinite(rr.mg)?` · ${rr.mg.toFixed(1)}L`:''}</div>`:'';
     return`<div class="rn ${!f.scr&&k===0&&sc.mode!=='none'?'top':''} ${f.scr?'scr':''}" data-row="${esc(f.num)}">
       <div class="no">${esc(f.num)}</div>
-      <div class="nm"><b>${esc(f.name)}</b><div class="meta">${meta}</div></div>
+      <div class="nm"><b>${esc(f.name)}</b>${resLine}<div class="meta">${meta}</div></div>
       <div class="r c-pr">${cellPr(f,maxP)}</div>
       <div class="r c-fr">${f.scr?'':money(f.fair)}</div>
       <div class="c-mk"><input type="number" inputmode="decimal" step="0.1" min="1" id="px${esc(f.num)}" data-px="${esc(f.num)}" value="${isFinite(f.price)?f.price:''}" placeholder="$" aria-label="Market price for ${esc(f.name)}" ${f.scr?'disabled':''}>
