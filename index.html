@@ -41,6 +41,7 @@ header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:spac
 .chip b{color:var(--ink);font-weight:500}
 nav.tabs{display:flex;gap:2px;margin-block:12px 16px;overflow-x:auto;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;padding-block:4px}
 nav.tabs button{font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:.04em;text-transform:uppercase;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:6px 12px 5px;cursor:pointer;white-space:nowrap}
+@media (max-width:440px){nav.tabs{gap:0}nav.tabs button{padding:6px 6px 5px;font-size:16px;letter-spacing:.01em}}
 nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 h2{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:.02em;text-transform:uppercase;margin:0;text-wrap:balance}
@@ -133,6 +134,7 @@ svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
     <button role="tab" data-tab="card" aria-selected="true">Race card</button>
     <button role="tab" data-tab="bt" aria-selected="false">Backtest</button>
     <button role="tab" data-tab="hist" aria-selected="false">History</button>
+    <button role="tab" data-tab="bets" aria-selected="false">Bets</button>
     <button role="tab" data-tab="set" aria-selected="false">Settings</button>
   </nav>
 
@@ -214,6 +216,19 @@ svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
         <button class="danger" id="wipeYes" hidden>Yes, delete everything</button>
         <button class="ghost" id="wipeNo" hidden>Cancel</button>
       </div>
+    </div>
+  </section>
+
+  <!-- PAPER BETS -->
+  <section id="tab-bets" class="stack" hidden>
+    <div class="panel stack">
+      <h2>Paper bets</h2>
+      <p class="note">Log flagged bets from the race card at the price you could actually get. They settle automatically from results. Two things decide whether there's a real edge: <b>profit</b> (slow to prove, because winners are lumpy) and <b>beating SP</b>, meaning your price was longer than the starting price. Consistently beating SP is the faster, more reliable sign.</p>
+      <div id="betStats" class="summary"></div>
+      <div class="row"><button class="ghost" id="settleBtn">Settle pending now</button><span id="betMsg" class="small muted"></span></div>
+    </div>
+    <div class="panel">
+      <div class="scroll"><table><thead><tr><th>Race</th><th>Horse</th><th class="n">Price</th><th class="n">SP</th><th class="n">Chance</th><th>Result</th><th class="n">P/L</th><th></th></tr></thead><tbody id="betRows"></tbody></table></div>
     </div>
   </section>
 
@@ -430,8 +445,8 @@ const fmtD=iso=>{if(!iso)return'–';const [y,m,d]=iso.split('-').map(Number);re
 
 /* ================= IndexedDB ================= */
 let dbp=null;
-function idb(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open('proform',1);
-  r.onupgradeneeded=()=>{const d=r.result;['races','days','cache'].forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s)})};
+function idb(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open('proform',2);
+  r.onupgradeneeded=()=>{const d=r.result;['races','days','cache','bets'].forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s)})};
   r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
 async function idbPutMany(store,entries){const d=await idb();return new Promise((res,rej)=>{const tx=d.transaction(store,'readwrite');const os=tx.objectStore(store);entries.forEach(([k,v])=>os.put(v,k));tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
 async function idbGet(store,key){const d=await idb();return new Promise((res,rej)=>{const r=d.transaction(store).objectStore(store).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
@@ -576,7 +591,7 @@ let WK=null,BUILDING=false,WKURL=null;
 function rebuild(){
   ENG.setS(S);if(WK){WK.terminate();WK=null}
   BUILDING=true;renderStatus();
-  const done=m=>{M=m;BUILDING=false;WK=null;renderAll()};
+  const done=m=>{M=m;BUILDING=false;WK=null;recordCheck();renderAll();settleBets()};
   const local=()=>setTimeout(()=>done(ENG.buildModel(RACES,{...S})),30);
   try{
     if(!WKURL)WKURL=URL.createObjectURL(new Blob([ENGSRC+';self.onmessage=e=>{self.postMessage(buildModel(e.data.races,e.data.s))};'],{type:'text/javascript'}));
@@ -692,7 +707,10 @@ function renderCard(){
   renderCardSummary(sc);
 }
 function cellPr(f,maxP){if(f.scr)return'Scr';if(!isFinite(f.p))return'<span class="muted">–</span>';return pct(f.p)+`<div class="bar"><i style="width:${(f.p/maxP*100).toFixed(0)}%"></i></div>`}
+function betId(f){return CARD.date+'|'+String((CARD.form&&CARD.form.track)||CARD.meet.track).toLowerCase()+'|'+CARD.race+'|'+String(f.name).toLowerCase()}
 function cellEd(f){if(f.scr||!isFinite(f.edge))return'<span class="muted">–</span>';
+  if(f.edge>=S.edgeMin){const done=BETS.has(betId(f));return`<span class="pill bet">${sgn(f.edge*100,0)}%</span><div class="small muted" style="text-align:right">${(f.kelly*100).toFixed(1)}% · $${Math.round(f.kelly*S.bank)}</div>`+
+    (done?'<div class="small" style="text-align:right;color:var(--good)">Logged ✓</div>':`<button class="ghost" style="padding:3px 8px;font-size:12px;margin-top:4px" data-bet="${esc(f.num)}">Paper bet</button>`)}
   return f.edge>=S.edgeMin?`<span class="pill bet">${sgn(f.edge*100,0)}%</span><div class="small muted" style="text-align:right">${(f.kelly*100).toFixed(1)}% · $${Math.round(f.kelly*S.bank)}</div>`:`<span class="pill ${f.edge>0?'pos':'neg'}">${sgn(f.edge*100,0)}%</span>`}
 function patchCard(){
   const sc=scoreCard();if(!sc)return;const maxP=Math.max(...sc.live.map(f=>f.p).filter(isFinite),0.0001);
@@ -704,13 +722,62 @@ function renderCardSummary(sc){
   if(sc.mode==='none'){
     $('#cardSummary').innerHTML=`<div class="msg" style="grid-column:1/-1"><b>Not priced yet.</b> ${esc(sc.reason||'')} Chances and edges stay hidden until the fitted model can back them up, so nothing here is a bet signal.</div>`;return}
   const top=[...sc.live].sort((a,b)=>b.p-a.p)[0];const bets=sc.live.filter(f=>f.edge>=S.edgeMin);
-  const prov=!M.test||M.test.n<300||M.test.verdict!=='beats';
-  $('#cardSummary').innerHTML=(prov?`<div class="msg" style="grid-column:1/-1"><b>Provisional.</b> The model is fitted on ${M.nRecs} races${M.test?` and tested on ${M.test.n}`:''}. Treat edges as a watch list until the backtest has 300+ test races and the blend beats SP by more than luck explains.</div>`:'')+`
+  const prov=!M.test||M.test.n<300||verdict().v!=='beats';
+  $('#cardSummary').innerHTML=(prov?`<div class="msg" style="grid-column:1/-1"><b>Provisional.</b> The model is fitted on ${M.nRecs} races${M.test?` and tested on ${M.test.n}`:''}. Treat edges as a watch list: log them as paper bets until the blend's lead over SP is proven (Backtest tab) and paper bets beat SP.</div>`:'')+`
     <div class="stat acc"><div class="k">Top rated</div><div class="v">${esc(top.name)}</div><div class="s">${pct(top.p)} · fair ${money(top.fair)}</div></div>
     <div class="stat ${bets.length&&!prov?'good':''}"><div class="k">Flagged (edge ≥ ${Math.round(S.edgeMin*100)}%)</div><div class="v">${bets.length}</div><div class="s">${sc.mode==='blend'?(bets.length?bets.map(b=>esc(b.name)).join(', '):'None at these prices'):!M.cB?'Needs the market blend, which fits once enough races have SP':`Enter every runner's price to see edges (${sc.priced} of ${sc.live.length} entered)`}</div></div>
     <div class="stat"><div class="k">Model</div><div class="v">${sc.mode==='blend'?'Blend':'Form + ratings'}</div><div class="s">${sc.mode==='blend'?'Combined with your prices':M.cB?'Enter every price to blend with market':'Market blend not fitted yet'}</div></div>
     <div class="stat"><div class="k">Margin history</div><div class="v">${sc.rated} / ${sc.live.length}</div><div class="s">${isFinite(sc.book)?'Overround '+(sc.book*100).toFixed(1)+'%':'Others priced from FormFav form'}</div></div>`;
 }
+
+/* ================= paper bets ================= */
+let BETS=new Map();
+async function loadBets(){try{BETS=new Map(await idbAll('bets'))}catch(e){BETS=new Map()}}
+function findResult(b){
+  const R=RACES.find(R=>R.d===b.d&&R.r===+b.race&&(String(R.t).toLowerCase()===String(b.track).toLowerCase()||(R.slug&&R.slug===b.slug)));
+  if(!R)return null;const x=R.run.find(x=>x[0].toLowerCase()===String(b.name).toLowerCase());
+  return{pos:x?x[3]:NaN,sp:x?x[5]:NaN,scr:!x}}
+function settleFrom(b,r){if(!r)return false;
+  if(r.scr){b.res={scr:true,pl:0,plK:0};return true}
+  const won=r.pos===1;b.res={pos:r.pos,sp:r.sp,won,pl:won?b.price-1:-1,plK:won?b.stake*(b.price-1):-b.stake};return true}
+async function settleBets(fetchMissing){
+  const pend=[...BETS.values()].filter(b=>!b.res&&b.d<=todayISO());if(!pend.length)return;
+  const upd=[];
+  for(const b of pend){let r=findResult(b);
+    if(!r&&fetchMissing&&b.d<todayISO()||!r&&fetchMissing&&b.d===todayISO()){try{const j=await api('/results',{date:b.d,track:b.slug||b.track,race:b.race,race_code:'gallops',country:S.country},{cacheFor:6e5});
+      const o=j&&findAll(j,x=>Array.isArray(x.placings))[0];if(o){const p=o.placings.find(x=>String(x.name).toLowerCase()===String(b.name).toLowerCase());
+        r=p?{pos:p.scratched?NaN:num(p.position),sp:num(p.startingPrice),scr:!!p.scratched}:{scr:true}}}catch(e){$('#betMsg').textContent=e.message;break}}
+    if(settleFrom(b,r))upd.push([b.id,b])}
+  if(upd.length)await idbPutMany('bets',upd);
+  if(fetchMissing)$('#betMsg').textContent=upd.length?`${upd.length} settled.`:'Nothing new: results arrive in batches every 2–3 hours.';
+  renderBetStats();if(tab==='bets')renderBets()}
+function betSummary(){
+  const all=[...BETS.values()],set=all.filter(b=>b.res&&!b.res.scr);
+  const n=set.length,w=set.filter(b=>b.res.won).length,pl=set.reduce((a,b)=>a+b.res.pl,0),plK=set.reduce((a,b)=>a+b.res.plK,0),stK=set.reduce((a,b)=>a+b.stake,0);
+  const c=set.filter(b=>isFinite(b.res.sp)&&b.res.sp>1).map(b=>Math.log(b.price/b.res.sp));
+  let clv=NaN,clvSE=NaN,beat=0;if(c.length){clv=c.reduce((a,x)=>a+x,0)/c.length;beat=c.filter(x=>x>0).length;
+    if(c.length>1)clvSE=Math.sqrt(c.reduce((a,x)=>a+(x-clv)**2,0)/(c.length-1)/c.length)}
+  const roiSE=n>1?Math.sqrt(set.reduce((a,b)=>a+(b.res.pl-pl/n)**2,0)/(n-1)/n):NaN;
+  return{all,n,w,pl,plK,stK,clv,clvSE,beat,nc:c.length,pend:all.filter(b=>!b.res).length,roiSE}}
+function renderBetStats(){const el=$('#betStats');if(!el)return;const s=betSummary();
+  const roi=s.n?s.pl/s.n:NaN;
+  el.innerHTML=`
+    <div class="stat acc"><div class="k">Bets</div><div class="v">${s.n}</div><div class="s">${s.w} winners · ${s.pend} pending</div></div>
+    <div class="stat ${s.n>=30&&roi>2*s.roiSE?'good':''}"><div class="k">Level stakes</div><div class="v">${isFinite(roi)?(roi>0?'+':'')+(roi*100).toFixed(1)+'%':'–'}</div><div class="s">${s.n?`${sgn(s.pl,2)} units${isFinite(s.roiSE)?` · luck range ±${(200*s.roiSE).toFixed(0)}%`:''}`:'ROI per 1-unit bet'}</div></div>
+    <div class="stat ${s.nc>=30&&s.clv>2*s.clvSE?'good':''}"><div class="k">Beat SP</div><div class="v">${s.nc?Math.round(s.beat/s.nc*100)+'%':'–'}</div><div class="s">${s.nc?`Avg price vs SP ${s.clv>=0?'+':''}${((Math.exp(s.clv)-1)*100).toFixed(1)}%${isFinite(s.clvSE)?` (luck range ±${((Math.exp(2*s.clvSE)-1)*100).toFixed(1)}%)`:''}`:'How often your price was longer than SP'}</div></div>
+    <div class="stat"><div class="k">Kelly stakes</div><div class="v">${s.n?(s.plK>=0?'+$':'−$')+Math.abs(s.plK).toFixed(0):'–'}</div><div class="s">${s.n?`on $${s.stK.toFixed(0)} staked`:'Suggested stakes from your bank'}</div></div>`}
+function renderBets(){renderBetStats();
+  const rows=[...BETS.values()].sort((a,b)=>b.at-a.at);
+  $('#betRows').innerHTML=rows.length?rows.map(b=>{const r=b.res;
+    const res=!r?'<span class="muted">Pending</span>':r.scr?'<span class="muted">Scratched</span>':`<span class="pill ${r.won?'bet':'neg'}">${r.pos?r.pos:'DNF'}</span>`;
+    return`<tr><td>${fmtD(b.d)} · ${esc(b.track)} R${esc(b.race)}</td><td>${esc(b.name)}</td><td class="n mono">${money(b.price)}</td>
+      <td class="n mono">${r&&isFinite(r.sp)?money(r.sp):'–'}</td><td class="n mono">${pct(b.p)}</td><td>${res}</td>
+      <td class="n mono">${r&&!r.scr?sgn(r.pl,2):'–'}</td><td><button class="ghost" style="padding:2px 8px" data-del="${esc(b.id)}" aria-label="Delete bet">×</button></td></tr>`}).join('')
+    :'<tr><td colspan="8" class="muted">No paper bets yet. Flagged runners on the race card have a Paper bet button.</td></tr>'}
+$('#betRows').addEventListener('click',async e=>{const b=e.target.closest('[data-del]');if(!b)return;
+  if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='Delete?';return}
+  const id=b.dataset.del;BETS.delete(id);const d=await idb();await new Promise(r=>{const tx=d.transaction('bets','readwrite');tx.objectStore('bets').delete(id);tx.oncomplete=r;tx.onerror=r});renderBets()});
+$('#settleBtn').addEventListener('click',()=>settleBets(true));
 
 /* ================= renders ================= */
 function renderStatus(){const el=$('#status');const hk=!!getKey();
@@ -735,14 +802,15 @@ function renderBacktest(){
   const T=M.test;
   if(!M.ready||!T){$('#btSummary').innerHTML=`<p class="note">${M.ready?`${M.nRecs} of the ${MINFIT} races with FormFav form needed to fit the model. At roughly 50 races a day that takes a few days of top-ups; a trustworthy test needs 300+ test races, which is about 4 weeks.`:'Sync history first. The backtest needs results to rate and test against.'}</p>`;
     $('#coefBody').innerHTML='';$('#calBody').innerHTML='';$('#betBody').innerHTML='';$('#calChart').innerHTML='';return}
-  const skill=1-T.llA/T.llU;
+  const skill=1-T.llA/T.llU;const V=verdict();
   $('#btSummary').innerHTML=`
     <div class="stat"><div class="k">Test races</div><div class="v">${T.n}</div><div class="s">${fmtD(M.teFrom)} – ${fmtD(M.teTo)} · trained on ${M.nTr}</div></div>
     <div class="stat acc"><div class="k">Model log-loss</div><div class="v">${T.llA.toFixed(3)}</div><div class="s">Random pick ${T.llU.toFixed(3)} · skill ${(skill*100).toFixed(1)}%</div></div>
     <div class="stat"><div class="k">SP market log-loss</div><div class="v">${T.nM?T.llM.toFixed(3):'–'}</div><div class="s">${T.nM?`Model on same ${T.nM} races: ${T.llAM.toFixed(3)}`:'No SP in results'}</div></div>
-    <div class="stat ${T.verdict==='beats'?'good':''}"><div class="k">Blend log-loss</div><div class="v">${T.nM&&M.cBtr?T.llB.toFixed(3):'–'}</div><div class="s">${!T.verdict?'–':
-      T.verdict==='beats'?`<b>Beats SP</b> by ${T.gap.toFixed(4)} (luck range ±${(2*T.gapSE).toFixed(4)}). The ratings add real information${T.n<300?', but confirm it holds to 300+ test races':''}.`:
-      T.verdict==='worse'?`<b>Worse than SP</b> by ${(-T.gap).toFixed(4)}, more than luck explains (±${(2*T.gapSE).toFixed(4)}). Don't use edges.`:
+    <div class="stat ${V.v==='beats'?'good':''}"><div class="k">Blend log-loss</div><div class="v">${T.nM&&M.cBtr?T.llB.toFixed(3):'–'}</div><div class="s">${!V.v?'–':
+      V.v==='beats'?`<b>Beats SP</b> by ${T.gap.toFixed(4)} (luck range ±${(2*T.gapSE).toFixed(4)}), ${V.why}.${T.n<300?' Confirm it holds to 300+ test races.':''} It still has to clear the bookmaker's margin: check Paper bets.`:
+      V.v==='promising'?`<b>Ahead of SP once</b> by ${T.gap.toFixed(4)} (luck range ±${(2*T.gapSE).toFixed(4)}). Not proven: it needs to stay ahead at the next weekly check (from ${fmtD(V.next)}) or reach 3× the luck range.`:
+      V.v==='worse'?`<b>Worse than SP</b> by ${(-T.gap).toFixed(4)}, more than luck explains (±${(2*T.gapSE).toFixed(4)}). Don't use edges.`:
       `<b>Level with SP.</b> Gap ${T.gap>=0?'+':''}${T.gap.toFixed(4)} is inside the luck range of ±${(2*T.gapSE).toFixed(4)}. No proven edge yet.`}</div></div>`;
   $('#coefBody').innerHTML=FEATS.map((f,k)=>`<tr><td>${f}</td><td class="n mono">${M.cA?sgn(M.cA[k],3):'–'}</td><td class="n mono">${M.cB?sgn(M.cB[k],3):'–'}</td></tr>`).join('')+
     `<tr><td>Market (log chance)</td><td class="n mono">–</td><td class="n mono">${M.cB?sgn(M.cB[FEATS.length],3):'–'}</td></tr>`;
@@ -763,18 +831,36 @@ function renderSettings(){
   $('#keyIn').value=getKey();$('#country').value=S.country;$('#dailyCap').value=S.dailyCap;
   $('#setGrid').innerHTML=SET.map(([k,l,st,d])=>`<div><label class="f">${l}<input id="set_${k}" type="number" step="${st}" value="${S[k]}"></label><div class="d">${d}</div></div>`).join('');
 }
+/* weekly checks of blend vs SP, kept on this device */
+function checks(){try{return JSON.parse(lsGet('pf.checks')||'[]')}catch(e){return[]}}
+/* one entry per 7-day window; the newest window keeps updating until 7 days after it opened */
+function recordCheck(){const T=M.test;if(!T||!isFinite(T.gap))return;const c=checks();const d=todayISO();const last=c[c.length-1];
+  const row={d,gap:T.gap,se:T.gapSE,n:T.n};
+  if(!last||!last.s||dayNum(d)-dayNum(last.s)>=7)c.push({...row,s:d});else c[c.length-1]={...row,s:last.s};
+  lsSet('pf.checks',JSON.stringify(c.slice(-20)))}
+function verdict(){const T=M.test;if(!T||!isFinite(T.gap))return{v:null};
+  const z=T.gap/(T.gapSE||1e-9);if(z<-2)return{v:'worse',z};if(z>3)return{v:'beats',z,why:'more than 3× the luck range'};
+  if(z>2){const c=checks();const prev=c.slice(0,-1).filter(x=>x.gap>2*x.se);
+    if(prev.length)return{v:'beats',z,why:`and it was also ahead at the ${fmtD(prev[prev.length-1].d)} check`};
+    const cur=c[c.length-1];return{v:'promising',z,next:addDays(cur&&cur.s?cur.s:todayISO(),7)}}
+  return{v:'level',z}}
 function renderAll(){const fr=freshness();const fw=$('#freshWarn');fw.hidden=!(getKey()&&RACES.length&&fr.warn);fw.textContent=fr.msg+'.';renderStatus();renderHist();renderBacktest();renderCard();$('#onboard').hidden=!!getKey()&&RACES.length>0}
 
 /* ================= events ================= */
 let tab='card';
 document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;
-  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  ['card','bt','hist','set'].forEach(t=>$('#tab-'+t).hidden=t!==tab);lsSet('pf.tab',tab)}));
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));try{b.scrollIntoView({block:'nearest',inline:'nearest'})}catch(_){}
+  ['card','bt','hist','bets','set'].forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='bets')renderBets();lsSet('pf.tab',tab)}));
 $('#loadMeet').addEventListener('click',loadMeetings);
 $('#cDate').addEventListener('change',loadMeetings);
 $('#meetPick').addEventListener('click',e=>{const b=e.target.closest('[data-m]');if(!b)return;CARD.meet=CARD.meets[+b.dataset.m];CARD.race=null;CARD.form=null;renderPickers();renderCard()});
 $('#racePick').addEventListener('click',e=>{const b=e.target.closest('[data-r]');if(!b)return;loadRace(CARD.meet,+b.dataset.r)});
 $('#runners').addEventListener('input',e=>{const n=e.target.dataset.px;if(n==null)return;CARD.prices[n]=e.target.value;patchCard()});
+$('#runners').addEventListener('click',async e=>{const b=e.target.closest('[data-bet]');if(!b)return;const sc=scoreCard();if(!sc)return;
+  const f=sc.live.find(x=>String(x.num)===b.dataset.bet);if(!f||!isFinite(f.edge))return;
+  const o=CARD.form;const bet={id:betId(f),d:CARD.date,track:o.track||CARD.meet.track,slug:CARD.meet.slug,race:CARD.race,num:f.num,name:f.name,
+    price:f.price,p:f.p,edge:f.edge,kelly:f.kelly,stake:Math.round(f.kelly*S.bank*100)/100,at:Date.now(),res:null};
+  await idbPutMany('bets',[[bet.id,bet]]);BETS.set(bet.id,bet);patchCard();renderBetStats()});
 $('#runners').addEventListener('change',e=>{const n=e.target.dataset.scr;if(n==null)return;CARD.scr[n]=e.target.checked;renderCard()});
 $('#raceHead').addEventListener('click',e=>{if(e.target.id==='resBtn')loadResult()});
 $('#syncBtn').addEventListener('click',()=>syncRange($('#hFrom').value,$('#hTo').value));
@@ -800,7 +886,7 @@ $('#resetSet').addEventListener('click',()=>{const keep={country:S.country,daily
   const t=lsGet('pf.tab');if(t&&t!=='card'){const b=document.querySelector(`nav.tabs button[data-tab="${t}"]`);if(b)b.click()}
   $('#cDate').value=todayISO();$('#hTo').value=addDays(todayISO(),-1);$('#hFrom').value=minDate();
   renderSettings();renderStatus();renderHist();renderBacktest();$('#onboard').hidden=!!getKey();
-  await loadHistory();renderStatus();renderHist();
+  await loadHistory();await loadBets();renderStatus();renderHist();
   setTimeout(()=>{rebuild();if(getKey()){loadMeetings();autoTopUp()}},20);
 })();
 })();
