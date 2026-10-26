@@ -162,7 +162,7 @@ svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
     <div id="cardSummary" class="summary"></div>
     <div id="cardPanel" class="panel" hidden>
       <div class="runners" id="runners"></div>
-      <p class="note small" style="margin-top:10px">Edges only appear once every runner has a price, because they come from the model combined with the market. The model on its own disagrees with the market most on long shots, and in testing those bets lost heavily. Enter the price you can actually get in the Market column. Pro data has no live odds or scratchings, so tick <b>Scr</b> for late scratchings. Probabilities recalculate for the remaining field.</p>
+      <p class="note small" style="margin-top:10px"><b>vs mkt</b> compares the model's chance with the market's chance once the bookmaker's margin is removed. It shows where the model disagrees with the market even when the margin leaves no bettable edge. Runners at or above the watch-list threshold can be paper-bet to test whether those disagreements beat SP. Edges only appear once every runner has a price, because they come from the model combined with the market. The model on its own disagrees with the market most on long shots, and in testing those bets lost heavily. Enter the price you can actually get in the Market column. Pro data has no live odds or scratchings, so tick <b>Scr</b> for late scratchings. Probabilities recalculate for the remaining field.</p>
     </div>
   </section>
 
@@ -228,7 +228,7 @@ svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
       <div class="row"><button class="ghost" id="settleBtn">Settle pending now</button><span id="betMsg" class="small muted"></span></div>
     </div>
     <div class="panel">
-      <div class="scroll"><table><thead><tr><th>Race</th><th>Horse</th><th class="n">Price</th><th class="n">SP</th><th class="n">Chance</th><th>Result</th><th class="n">P/L</th><th></th></tr></thead><tbody id="betRows"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Race</th><th>Horse</th><th>Type</th><th class="n">Price</th><th class="n">SP</th><th class="n">Chance</th><th>Result</th><th class="n">P/L</th><th></th></tr></thead><tbody id="betRows"></tbody></table></div>
     </div>
   </section>
 
@@ -410,7 +410,7 @@ const API='https://api.formfav.com/v1';
 /* ================= settings ================= */
 const DEF={country:'au',dailyCap:18000,resMode:'auto',
   refWeight:57,kpl1200:1.5,wScale:1,marginCap:10,obsVar:9,newVar:36,newGap:4,priorVar:16,driftPerDay:0.02,minVar:1,heavyNoise:1.5,
-  spellDays:60,burnIn:0,edgeMin:0.10,kellyFrac:0.25,bank:1000};
+  spellDays:60,burnIn:0,edgeMin:0.10,vsMin:0.10,kellyFrac:0.25,bank:1000};
 const SET=[
  ['refWeight','Reference weight (kg)',0.5,'Ratings read as if every horse carried this weight.'],
  ['kpl1200','Kg per length at 1200m',0.05,'Scaled by distance: a length is worth more kilos in sprints than in staying races.'],
@@ -424,6 +424,7 @@ const SET=[
  ['spellDays','First-up threshold (days)',5,'Days since last run that count as resuming.'],
  ['burnIn','Burn-in before fitting (days)',5,'Early races are skipped in the fit while ratings settle.'],
  ['edgeMin','Bet threshold (edge)',0.01,'Minimum chance × price − 1 to flag a bet. 0.10 is 10%.'],
+ ['vsMin','Watch-list threshold (vs market)',0.01,'Flags runners the model rates this much more likely than the market, margin removed. 0.10 is 10%. For paper bets only.'],
  ['kellyFrac','Kelly fraction',0.05,'Share of full Kelly used for suggested stakes.'],
  ['bank','Bank ($)',50,'Used to turn stake percentages into dollars.']];
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -659,7 +660,8 @@ function scoreCard(){
   const p=softmax(u);
   /* edges only from the market blend: model-only edges against SP lost heavily in testing */
   const blend=out.mode==='blend';out.priced=live.filter(f=>isFinite(f.price)&&f.price>1).length;
-  live.forEach((f,i)=>{f.p=p[i];f.fair=1/p[i];f.edge=blend?f.p*f.price-1:NaN;
+  const zb=blend?live.reduce((a,f)=>a+1/f.price,0):NaN;
+  live.forEach((f,i)=>{f.p=p[i];f.fair=1/p[i];f.edge=blend?f.p*f.price-1:NaN;f.mkt=blend?(1/f.price)/zb:NaN;f.vs=blend?f.p/f.mkt-1:NaN;
     f.kelly=f.edge>0?S.kellyFrac*f.edge/(f.price-1):0});
   return out;
 }
@@ -709,9 +711,13 @@ function renderCard(){
 function cellPr(f,maxP){if(f.scr)return'Scr';if(!isFinite(f.p))return'<span class="muted">–</span>';return pct(f.p)+`<div class="bar"><i style="width:${(f.p/maxP*100).toFixed(0)}%"></i></div>`}
 function betId(f){return CARD.date+'|'+String((CARD.form&&CARD.form.track)||CARD.meet.track).toLowerCase()+'|'+CARD.race+'|'+String(f.name).toLowerCase()}
 function cellEd(f){if(f.scr||!isFinite(f.edge))return'<span class="muted">–</span>';
-  if(f.edge>=S.edgeMin){const done=BETS.has(betId(f));return`<span class="pill bet">${sgn(f.edge*100,0)}%</span><div class="small muted" style="text-align:right">${(f.kelly*100).toFixed(1)}% · $${Math.round(f.kelly*S.bank)}</div>`+
-    (done?'<div class="small" style="text-align:right;color:var(--good)">Logged ✓</div>':`<button class="ghost" style="padding:3px 8px;font-size:12px;margin-top:4px" data-bet="${esc(f.num)}">Paper bet</button>`)}
-  return f.edge>=S.edgeMin?`<span class="pill bet">${sgn(f.edge*100,0)}%</span><div class="small muted" style="text-align:right">${(f.kelly*100).toFixed(1)}% · $${Math.round(f.kelly*S.bank)}</div>`:`<span class="pill ${f.edge>0?'pos':'neg'}">${sgn(f.edge*100,0)}%</span>`}
+  const isEdge=f.edge>=S.edgeMin,isWatch=!isEdge&&f.vs>=S.vsMin;
+  let h=isEdge?`<span class="pill bet">${sgn(f.edge*100,0)}%</span><div class="small muted" style="text-align:right">${(f.kelly*100).toFixed(1)}% · $${Math.round(f.kelly*S.bank)}</div>`
+    :`<span class="pill ${f.edge>0?'pos':'neg'}">${sgn(f.edge*100,0)}%</span>`;
+  h+=`<div class="small" style="text-align:right;${isWatch?'color:var(--warn);font-weight:500':'color:var(--muted)'}" title="Model chance vs market chance with the margin removed">vs mkt ${sgn(f.vs*100,0)}%</div>`;
+  if(isEdge||isWatch){const done=BETS.has(betId(f));
+    h+=done?'<div class="small" style="text-align:right;color:var(--good)">Logged ✓</div>':`<button class="ghost" style="padding:3px 8px;font-size:12px;margin-top:4px" data-bet="${esc(f.num)}">Paper bet</button>`}
+  return h}
 function patchCard(){
   const sc=scoreCard();if(!sc)return;const maxP=Math.max(...sc.live.map(f=>f.p).filter(isFinite),0.0001);
   sc.live.forEach(f=>{const row=document.querySelector(`#runners [data-row="${CSS.escape(String(f.num))}"]`);if(!row)return;
@@ -725,6 +731,8 @@ function renderCardSummary(sc){
   const prov=!M.test||M.test.n<300||verdict().v!=='beats';
   $('#cardSummary').innerHTML=(prov?`<div class="msg" style="grid-column:1/-1"><b>Provisional.</b> The model is fitted on ${M.nRecs} races${M.test?` and tested on ${M.test.n}`:''}. Treat edges as a watch list: log them as paper bets until the blend's lead over SP is proven (Backtest tab) and paper bets beat SP.</div>`:'')+`
     <div class="stat acc"><div class="k">Top rated</div><div class="v">${esc(top.name)}</div><div class="s">${pct(top.p)} · fair ${money(top.fair)}</div></div>
+    ${sc.mode==='blend'?(()=>{const w=sc.live.filter(f=>!(f.edge>=S.edgeMin)&&f.vs>=S.vsMin).sort((a,b)=>b.vs-a.vs);const t=[...sc.live].sort((a,b)=>b.vs-a.vs)[0];
+      return`<div class="stat"><div class="k">Watch list (vs market ≥ ${Math.round(S.vsMin*100)}%)</div><div class="v">${w.length}</div><div class="s">${w.length?w.map(f=>`${esc(f.name)} ${sgn(f.vs*100,0)}%`).join(', '):`Biggest gap: ${esc(t.name)} ${sgn(t.vs*100,0)}%`}</div></div>`})():''}
     <div class="stat ${bets.length&&!prov?'good':''}"><div class="k">Flagged (edge ≥ ${Math.round(S.edgeMin*100)}%)</div><div class="v">${bets.length}</div><div class="s">${sc.mode==='blend'?(bets.length?bets.map(b=>esc(b.name)).join(', '):'None at these prices'):!M.cB?'Needs the market blend, which fits once enough races have SP':`Enter every runner's price to see edges (${sc.priced} of ${sc.live.length} entered)`}</div></div>
     <div class="stat"><div class="k">Model</div><div class="v">${sc.mode==='blend'?'Blend':'Form + ratings'}</div><div class="s">${sc.mode==='blend'?'Combined with your prices':M.cB?'Enter every price to blend with market':'Market blend not fitted yet'}</div></div>
     <div class="stat"><div class="k">Margin history</div><div class="v">${sc.rated} / ${sc.live.length}</div><div class="s">${isFinite(sc.book)?'Overround '+(sc.book*100).toFixed(1)+'%':'Others priced from FormFav form'}</div></div>`;
@@ -739,7 +747,7 @@ function findResult(b){
   return{pos:x?x[3]:NaN,sp:x?x[5]:NaN,scr:!x}}
 function settleFrom(b,r){if(!r)return false;
   if(r.scr){b.res={scr:true,pl:0,plK:0};return true}
-  const won=r.pos===1;b.res={pos:r.pos,sp:r.sp,won,pl:won?b.price-1:-1,plK:won?b.stake*(b.price-1):-b.stake};return true}
+  const won=r.pos===1;b.res={pos:r.pos,sp:r.sp,won,pl:won?b.price-1:-1,plK:won?(b.stake||0)*(b.price-1):-(b.stake||0)};return true}
 async function settleBets(fetchMissing){
   const pend=[...BETS.values()].filter(b=>!b.res&&b.d<=todayISO());if(!pend.length)return;
   const upd=[];
@@ -770,10 +778,10 @@ function renderBets(){renderBetStats();
   const rows=[...BETS.values()].sort((a,b)=>b.at-a.at);
   $('#betRows').innerHTML=rows.length?rows.map(b=>{const r=b.res;
     const res=!r?'<span class="muted">Pending</span>':r.scr?'<span class="muted">Scratched</span>':`<span class="pill ${r.won?'bet':'neg'}">${r.pos?r.pos:'DNF'}</span>`;
-    return`<tr><td>${fmtD(b.d)} · ${esc(b.track)} R${esc(b.race)}</td><td>${esc(b.name)}</td><td class="n mono">${money(b.price)}</td>
+    return`<tr><td>${fmtD(b.d)} · ${esc(b.track)} R${esc(b.race)}</td><td>${esc(b.name)}</td><td>${b.kind==='watch'?`<span class="pill flag">Watch ${sgn((b.vs||0)*100,0)}%</span>`:'<span class="pill bet">Edge</span>'}</td><td class="n mono">${money(b.price)}</td>
       <td class="n mono">${r&&isFinite(r.sp)?money(r.sp):'–'}</td><td class="n mono">${pct(b.p)}</td><td>${res}</td>
       <td class="n mono">${r&&!r.scr?sgn(r.pl,2):'–'}</td><td><button class="ghost" style="padding:2px 8px" data-del="${esc(b.id)}" aria-label="Delete bet">×</button></td></tr>`}).join('')
-    :'<tr><td colspan="8" class="muted">No paper bets yet. Flagged runners on the race card have a Paper bet button.</td></tr>'}
+    :'<tr><td colspan="9" class="muted">No paper bets yet. Flagged and watch-list runners on the race card have a Paper bet button.</td></tr>'}
 $('#betRows').addEventListener('click',async e=>{const b=e.target.closest('[data-del]');if(!b)return;
   if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='Delete?';return}
   const id=b.dataset.del;BETS.delete(id);const d=await idb();await new Promise(r=>{const tx=d.transaction('bets','readwrite');tx.objectStore('bets').delete(id);tx.oncomplete=r;tx.onerror=r});renderBets()});
@@ -857,9 +865,9 @@ $('#meetPick').addEventListener('click',e=>{const b=e.target.closest('[data-m]')
 $('#racePick').addEventListener('click',e=>{const b=e.target.closest('[data-r]');if(!b)return;loadRace(CARD.meet,+b.dataset.r)});
 $('#runners').addEventListener('input',e=>{const n=e.target.dataset.px;if(n==null)return;CARD.prices[n]=e.target.value;patchCard()});
 $('#runners').addEventListener('click',async e=>{const b=e.target.closest('[data-bet]');if(!b)return;const sc=scoreCard();if(!sc)return;
-  const f=sc.live.find(x=>String(x.num)===b.dataset.bet);if(!f||!isFinite(f.edge))return;
+  const f=sc.live.find(x=>String(x.num)===b.dataset.bet);if(!f||!isFinite(f.edge))return;const kind=f.edge>=S.edgeMin?'edge':'watch';
   const o=CARD.form;const bet={id:betId(f),d:CARD.date,track:o.track||CARD.meet.track,slug:CARD.meet.slug,race:CARD.race,num:f.num,name:f.name,
-    price:f.price,p:f.p,edge:f.edge,kelly:f.kelly,stake:Math.round(f.kelly*S.bank*100)/100,at:Date.now(),res:null};
+    price:f.price,p:f.p,mkt:f.mkt,vs:f.vs,kind,edge:f.edge,kelly:kind==='edge'?f.kelly:0,stake:kind==='edge'?Math.round(f.kelly*S.bank*100)/100:0,at:Date.now(),res:null};
   await idbPutMany('bets',[[bet.id,bet]]);BETS.set(bet.id,bet);patchCard();renderBetStats()});
 $('#runners').addEventListener('change',e=>{const n=e.target.dataset.scr;if(n==null)return;CARD.scr[n]=e.target.checked;renderCard()});
 $('#raceHead').addEventListener('click',e=>{if(e.target.id==='resBtn')loadResult()});
